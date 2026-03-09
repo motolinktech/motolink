@@ -9,13 +9,8 @@ import { cleanDatabase } from "../../helpers/clean-database";
 
 const TEST_PASSWORD = "Test@1234";
 
-async function createTestUser(
-  overrides: { status?: string; password?: string | null } = {},
-) {
-  const hashedPassword =
-    overrides.password === null
-      ? null
-      : await hash().create(overrides.password ?? TEST_PASSWORD);
+async function createTestUser(overrides: { status?: string; password?: string | null } = {}) {
+  const hashedPassword = overrides.password === null ? null : await hash().create(overrides.password ?? TEST_PASSWORD);
 
   return db.user.create({
     data: {

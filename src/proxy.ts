@@ -20,14 +20,11 @@ export async function proxy(request: NextRequest) {
   const expiresAt = cookieStore.get(cookieConst.SESSION_EXPIRES_AT)?.value;
   const isPublicPath = publicPaths.includes(request.nextUrl.pathname);
 
-  const hasValidToken =
-    sessionToken && expiresAt && new Date(expiresAt) > new Date();
+  const hasValidToken = sessionToken && expiresAt && new Date(expiresAt) > new Date();
 
   if (!hasValidToken) {
     clearSessionCookies(cookieStore);
-    return isPublicPath
-      ? NextResponse.next()
-      : NextResponse.redirect(new URL("/login", request.url));
+    return isPublicPath ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));
   }
 
   const session = await sessionsService().validate(sessionToken);

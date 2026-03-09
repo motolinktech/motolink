@@ -1,0 +1,256 @@
+import { errAsync, okAsync } from "neverthrow";
+import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
+import { statusConst } from "@/constants/status";
+import { db } from "@/lib/database";
+import { hash } from "@/lib/hash";
+import { generateSecureToken } from "@/utils/generate-secure-token";
+import { historyTracesService } from "../history-traces/history-traces-service";
+import type { UserListQueryDTO, UserMutateDTO } from "./users-types";
+
+export function usersService() {
+  return {
+    async create(body: UserMutateDTO, loggedUserId: string) {
+      try {
+        const data = { ...body, status: statusConst.PENDING as string };
+
+        if (data.password) {
+          data.password = await hash().create(data.password);
+          data.status = statusConst.ACTIVE as string;
+        }
+
+        const user = await db.user.create({
+          data: {
+            ...data,
+          },
+          omit: {
+            password: true,
+          },
+        });
+
+        if (data.status === statusConst.PENDING && !data.password) {
+          const token = await generateSecureToken();
+
+          await db.verificationToken.create({
+            data: {
+              userId: user.id,
+              token,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            },
+          });
+
+          // if (user.phone) {
+          //   await whatsapp().usersInvite(user.phone, {
+          //     token,
+          //     name: user.name,
+          //   });
+          // }
+        }
+
+        historyTracesService()
+          .create({
+            userId: loggedUserId,
+            action: historyTraceActionConst.CREATED,
+            entityType: historyTraceEntityConst.USER,
+            entityId: user.id,
+            newObject: user,
+          })
+          .catch(() => {});
+
+        return okAsync(user);
+      } catch (error) {
+        console.error("Error creating user:", error);
+        return errAsync({
+          reason: "Não foi possível criar usuário",
+          statusCode: 500,
+        });
+      }
+    },
+
+    async getById(id: string) {
+      try {
+        const user = await db.user.findUnique({
+          where: { id },
+          omit: { password: true },
+        });
+
+        return okAsync(user);
+      } catch (error) {
+        console.error("Error getting user by id:", error);
+        return errAsync({
+          reason: "Não foi possível buscar usuário",
+          statusCode: 500,
+        });
+      }
+    },
+
+    async listAll(query: UserListQueryDTO) {
+      try {
+        const { page, pageSize, search, branchId } = query;
+        const skip = (page - 1) * pageSize;
+
+        const where = {
+          isDeleted: false,
+          ...(search && {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { email: { contains: search, mode: "insensitive" as const } },
+            ],
+          }),
+          ...(branchId && {
+            branches: { has: branchId },
+          }),
+        };
+
+        const [total, data] = await Promise.all([
+          db.user.count({ where }),
+          db.user.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { createdAt: "desc" },
+            omit: { password: true },
+          }),
+        ]);
+
+        return okAsync({
+          data,
+          pagination: {
+            page,
+            pageSize,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+          },
+        });
+      } catch (error) {
+        console.error("Error listing users:", error);
+        return errAsync({
+          reason: "Não foi possível listar usuários",
+          statusCode: 500,
+        });
+      }
+    },
+
+    async update(id: string, body: UserMutateDTO, loggedUserId: string) {
+      try {
+        const existingUser = await db.user.findUnique({
+          where: { id },
+          omit: { password: true },
+        });
+
+        if (!existingUser) {
+          return errAsync({
+            reason: "Usuário não encontrado",
+            statusCode: 404,
+          });
+        }
+
+        if (existingUser.isDeleted) {
+          return errAsync({
+            reason: "Usuário já foi excluído",
+            statusCode: 400,
+          });
+        }
+
+        const updateData = { ...body };
+
+        if (updateData.password) {
+          updateData.password = await hash().create(updateData.password);
+        }
+
+        if (updateData.email) {
+          const emailExists = await db.user.findFirst({
+            where: {
+              email: updateData.email,
+              id: { not: id },
+              isDeleted: false,
+            },
+          });
+
+          if (emailExists) {
+            return errAsync({
+              reason: "E-mail já está em uso por outro usuário",
+              statusCode: 400,
+            });
+          }
+        }
+
+        const updatedUser = await db.user.update({
+          where: { id },
+          data: updateData,
+          omit: { password: true },
+        });
+
+        historyTracesService()
+          .create({
+            userId: loggedUserId,
+            action: historyTraceActionConst.UPDATED,
+            entityType: historyTraceEntityConst.USER,
+            entityId: id,
+            newObject: updatedUser,
+            oldObject: existingUser,
+          })
+          .catch(() => {});
+
+        return okAsync(updatedUser);
+      } catch (error) {
+        console.error("Error updating user:", error);
+        return errAsync({
+          reason: "Não foi possível atualizar usuário",
+          statusCode: 500,
+        });
+      }
+    },
+
+    async delete(id: string, loggedUserId: string) {
+      try {
+        const existingUser = await db.user.findUnique({
+          where: { id },
+          omit: { password: true },
+        });
+
+        if (!existingUser) {
+          return errAsync({
+            reason: "Usuário não encontrado",
+            statusCode: 404,
+          });
+        }
+
+        if (existingUser.isDeleted) {
+          return errAsync({
+            reason: "Usuário já foi excluído",
+            statusCode: 400,
+          });
+        }
+
+        const deletedUser = await db.user.update({
+          where: { id },
+          data: { isDeleted: true },
+          omit: { password: true },
+        });
+
+        await db.session.deleteMany({
+          where: { userId: id },
+        });
+
+        historyTracesService()
+          .create({
+            userId: loggedUserId,
+            action: historyTraceActionConst.DELETED,
+            entityType: historyTraceEntityConst.USER,
+            entityId: id,
+            newObject: deletedUser,
+            oldObject: existingUser,
+          })
+          .catch(() => {});
+
+        return okAsync({ success: true });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        return errAsync({
+          reason: "Não foi possível excluir usuário",
+          statusCode: 500,
+        });
+      }
+    },
+  };
+}

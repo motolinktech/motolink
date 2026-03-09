@@ -7,10 +7,10 @@ export default defineConfig({
   test: {
     watch: false,
     globals: true,
+    fileParallelism: false,
     globalSetup: "./test/global-setup.ts",
     env: {
-      DATABASE_URL:
-        "postgresql://postgres:postgres@localhost:5433/test?schema=public",
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5433/test?schema=public",
     },
   },
 });

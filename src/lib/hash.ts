@@ -8,9 +8,7 @@ function _getPepper(): Promise<Buffer> {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET environment variable is not set");
 
-  cachedPepper = crypto.subtle
-    .digest("SHA-256", new TextEncoder().encode(secret))
-    .then((buf) => Buffer.from(buf));
+  cachedPepper = crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret)).then((buf) => Buffer.from(buf));
 
   return cachedPepper;
 }

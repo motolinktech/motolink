@@ -30,9 +30,7 @@ export function sessionsService() {
 
         const token = crypto.randomUUID();
 
-        const expiresAt = new Date(
-          Date.now() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000,
-        );
+        const expiresAt = new Date(Date.now() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000);
 
         const session = await db.session.create({
           data: { token, userId: user.id, expiresAt },
