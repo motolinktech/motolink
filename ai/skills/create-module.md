@@ -73,6 +73,7 @@ export type WidgetListQueryDTO = z.infer<typeof widgetListQuerySchema>;
 - Cap `pageSize` with `.max(100)`
 - Enum arrays from constants use `z.enum(arr as [string, ...string[]])`
 - Use `z.input<typeof schema>` when you need the pre-coercion input type
+- All Zod validation messages (the `message:` strings in `.min()`, `.max()`, `.regex()`, `.uuid()`, etc.) must be written in **Portuguese**
 
 ---
 

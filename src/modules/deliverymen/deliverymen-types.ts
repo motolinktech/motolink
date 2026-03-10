@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const deliverymanMutateSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  document: z.string().min(1, { message: "Document is required" }),
-  phone: z.string().min(1, { message: "Phone is required" }),
-  contractType: z.string().min(1, { message: "Contract type is required" }),
-  mainPixKey: z.string().min(1, { message: "Main Pix key is required" }),
+  name: z.string().min(1, { message: "Nome é obrigatório" }),
+  document: z.string().min(1, { message: "Documento é obrigatório" }),
+  phone: z.string().min(1, { message: "Telefone é obrigatório" }),
+  contractType: z.string().min(1, { message: "Tipo de contrato é obrigatório" }),
+  mainPixKey: z.string().min(1, { message: "Chave Pix principal é obrigatória" }),
   secondPixKey: z.string().optional(),
   thridPixKey: z.string().optional(),
   agency: z.string().optional(),

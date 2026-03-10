@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const groupMutateSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: z.string().min(1, { message: "Nome é obrigatório" }),
   description: z.string().optional(),
   branchId: z.uuid(),
 });
