@@ -16,3 +16,11 @@ export const groupListQuerySchema = z.object({
 });
 
 export type GroupListQueryDTO = z.infer<typeof groupListQuerySchema>;
+
+export const groupFormSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, { message: "Nome é obrigatório" }),
+  description: z.string().optional(),
+});
+
+export type GroupFormInput = z.infer<typeof groupFormSchema>;

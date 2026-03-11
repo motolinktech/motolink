@@ -166,6 +166,38 @@ async function main() {
     });
     console.log(`User ensured: ${user.email}`);
   }
+
+  // ── Groups ──
+
+  for (const branch of branchRecords) {
+    await db.group.deleteMany({ where: { branchId: branch.id } });
+    for (let i = 1; i <= 2; i++) {
+      const group = await db.group.create({
+        data: {
+          name: `Grupo ${i} - ${branch.name}`,
+          description: `Grupo ${i} da filial ${branch.name}`,
+          branchId: branch.id,
+        },
+      });
+      console.log(`GROUP created: ${group.name}`);
+    }
+  }
+
+  // ── Regions ──
+
+  for (const branch of branchRecords) {
+    await db.region.deleteMany({ where: { branchId: branch.id } });
+    for (let i = 1; i <= 2; i++) {
+      const region = await db.region.create({
+        data: {
+          name: `Região ${i} - ${branch.name}`,
+          description: `Região ${i} da filial ${branch.name}`,
+          branchId: branch.id,
+        },
+      });
+      console.log(`REGION created: ${region.name}`);
+    }
+  }
 }
 
 main()
