@@ -16,3 +16,11 @@ export const regionListQuerySchema = z.object({
 });
 
 export type RegionListQueryDTO = z.infer<typeof regionListQuerySchema>;
+
+export const regionFormSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, { message: "Nome é obrigatório" }),
+  description: z.string().optional(),
+});
+
+export type RegionFormInput = z.infer<typeof regionFormSchema>;
