@@ -6,12 +6,12 @@ import type { ClientListQueryDTO, ClientMutateDTO, ClientUpdateDTO } from "./cli
 
 export function clientsService() {
   return {
-    async create(body: ClientMutateDTO, loggedUserId: string) {
+    async create(body: ClientMutateDTO, loggedUserId: string, commercialConditionData?: Record<string, unknown>) {
       try {
         const client = await db.client.create({
           data: {
             ...body,
-            commercialCondition: { create: {} },
+            commercialCondition: { create: commercialConditionData ?? {} },
           },
           include: { commercialCondition: true },
         });
@@ -49,10 +49,15 @@ export function clientsService() {
           guaranteedPeriods,
           deliveryAreaKm,
           isMotolinkCovered,
+          rainTax,
           guaranteedDay,
           guaranteedDayWeekend,
           guaranteedNight,
           guaranteedNightWeekend,
+          guaranteedDayTax,
+          guaranteedNightTax,
+          guaranteedDayWeekendTax,
+          guaranteedNightWeekendTax,
           clientDailyDay,
           clientDailyDayWknd,
           clientDailyNight,
@@ -77,10 +82,15 @@ export function clientsService() {
             guaranteedPeriods,
             deliveryAreaKm,
             isMotolinkCovered,
+            rainTax,
             guaranteedDay,
             guaranteedDayWeekend,
             guaranteedNight,
             guaranteedNightWeekend,
+            guaranteedDayTax,
+            guaranteedNightTax,
+            guaranteedDayWeekendTax,
+            guaranteedNightWeekendTax,
             clientDailyDay,
             clientDailyDayWknd,
             clientDailyNight,

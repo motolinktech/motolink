@@ -344,6 +344,46 @@ describe("Clients Service", () => {
       expect(updated.commercialCondition?.isMotolinkCovered).toBe(true);
     });
 
+    it("should update regionId and commercial condition tax fields together", async () => {
+      const branch = await createTestBranch();
+      const initialRegion = await createTestRegion({ branchId: branch.id });
+      const nextRegion = await createTestRegion({ branchId: branch.id });
+      const created = await createTestClient({ branchId: branch.id, regionId: initialRegion.id });
+
+      const body: ClientUpdateDTO = {
+        name: created.name,
+        cnpj: created.cnpj,
+        cep: created.cep,
+        street: created.street,
+        number: created.number,
+        city: created.city,
+        neighborhood: created.neighborhood,
+        uf: created.uf,
+        contactName: created.contactName,
+        observations: created.observations,
+        contactPhone: created.contactPhone,
+        provideMeal: created.provideMeal,
+        branchId: branch.id,
+        regionId: nextRegion.id,
+        rainTax: 4.5,
+        guaranteedDayTax: 6.25,
+        guaranteedNightTax: 7.75,
+        guaranteedDayWeekendTax: 8.5,
+        guaranteedNightWeekendTax: 9.25,
+      };
+
+      const result = await service.update(created.id, body, LOGGED_USER_ID);
+
+      expect(result.isOk()).toBe(true);
+      const updated = result._unsafeUnwrap();
+      expect(updated.regionId).toBe(nextRegion.id);
+      expect(updated.commercialCondition?.rainTax.toString()).toBe("4.5");
+      expect(updated.commercialCondition?.guaranteedDayTax.toString()).toBe("6.25");
+      expect(updated.commercialCondition?.guaranteedNightTax.toString()).toBe("7.75");
+      expect(updated.commercialCondition?.guaranteedDayWeekendTax.toString()).toBe("8.5");
+      expect(updated.commercialCondition?.guaranteedNightWeekendTax.toString()).toBe("9.25");
+    });
+
     it("should return 404 when client is not found", async () => {
       const branch = await createTestBranch();
 

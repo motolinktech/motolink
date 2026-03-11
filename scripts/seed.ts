@@ -204,6 +204,97 @@ async function main() {
 
   // ── Deliverymen ──
 
+  // ── Clients (seed) ──
+  for (const branch of branchRecords) {
+    // remove existing clients for branch
+    await db.client.deleteMany({ where: { branchId: branch.id } });
+
+    const groupForBranch = await db.group.findFirst({ where: { branchId: branch.id } });
+    const regionForBranch = regionRecords.find((r) => r.branchId === branch.id);
+
+    const clients = [
+      {
+        name: `Cliente A - ${branch.name}`,
+        cnpj: `61486873000140`,
+        contactName: `Contato A - ${branch.name}`,
+        contactPhone: `11900000001`,
+        cep: "74969040",
+        street: "Rua A",
+        number: "1",
+        neighborhood: "Bairro A",
+        city: branch.name,
+        uf: branch.code === "SP" ? "SP" : branch.code === "RJ" ? "RJ" : "SP",
+        branchId: branch.id,
+        groupId: groupForBranch?.id ?? null,
+        regionId: regionForBranch?.id ?? null,
+        commercialCondition: {
+          create: {
+            paymentForm: ["DAILY"],
+            clientPerDelivery: 5.0,
+            deliverymanPerDelivery: 3.0,
+            deliveryAreaKm: 10.0,
+          },
+        },
+      },
+      {
+        name: `Cliente B - ${branch.name}`,
+        cnpj: `04181594000135`,
+        contactName: `Contato B - ${branch.name}`,
+        contactPhone: `11900000002`,
+        cep: "77021768",
+        street: "Rua B",
+        number: "2",
+        neighborhood: "Bairro B",
+        city: branch.name,
+        uf: branch.code === "SP" ? "SP" : branch.code === "RJ" ? "RJ" : "SP",
+        branchId: branch.id,
+        groupId: groupForBranch?.id ?? null,
+        regionId: regionForBranch?.id ?? null,
+        commercialCondition: {
+          create: {
+            paymentForm: ["GUARANTEED"],
+            guaranteedDay: 10,
+            guaranteedNight: 5,
+            guaranteedDayTax: 20.0,
+            guaranteedNightTax: 15.0,
+            isMotolinkCovered: true,
+          },
+        },
+      },
+      {
+        name: `Cliente C - ${branch.name}`,
+        cnpj: `20839185000130`,
+        contactName: `Contato C - ${branch.name}`,
+        contactPhone: `11900000003`,
+        cep: "57073026",
+        street: "Rua C",
+        number: "3",
+        neighborhood: "Bairro C",
+        city: branch.name,
+        uf: branch.code === "SP" ? "SP" : branch.code === "RJ" ? "RJ" : "SP",
+        branchId: branch.id,
+        groupId: groupForBranch?.id ?? null,
+        regionId: regionForBranch?.id ?? null,
+        commercialCondition: {
+          create: {
+            paymentForm: ["DAILY", "GUARANTEED"],
+            clientDailyDay: 2.5,
+            clientDailyNight: 3.5,
+            clientPerDelivery: 4.0,
+            deliverymanAdditionalKm: 1.5,
+          },
+        },
+      },
+    ];
+
+    for (const c of clients) {
+      const client = await db.client.create({ data: c });
+      console.log(`CLIENT created: ${client.name}`);
+    }
+  }
+
+  // ── Deliverymen ──
+
   for (const branch of branchRecords) {
     await db.deliveryman.deleteMany({ where: { branchId: branch.id } });
 
@@ -212,8 +303,8 @@ async function main() {
     const deliverymen = [
       {
         name: `Entregador 1 - ${branch.name}`,
-        document: "123.456.789-00",
-        phone: "(21) 99999-0001",
+        document: "69131932037",
+        phone: "21999990001",
         contractType: "FREELANCER",
         mainPixKey: "entregador1@pix.com",
         branchId: branch.id,
@@ -222,8 +313,8 @@ async function main() {
       },
       {
         name: `Entregador 2 - ${branch.name}`,
-        document: "987.654.321-00",
-        phone: "(21) 99999-0002",
+        document: "77503908041",
+        phone: "21999990002",
         contractType: "INDEPENDENT_COLLABORATOR",
         mainPixKey: "entregador2@pix.com",
         branchId: branch.id,
@@ -232,8 +323,8 @@ async function main() {
       },
       {
         name: `Entregador Bloqueado - ${branch.name}`,
-        document: "111.222.333-44",
-        phone: "(21) 99999-0003",
+        document: "41375377043",
+        phone: "21999990003",
         contractType: "FREELANCER",
         mainPixKey: "bloqueado@pix.com",
         branchId: branch.id,
