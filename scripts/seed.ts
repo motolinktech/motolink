@@ -185,6 +185,8 @@ async function main() {
 
   // ── Regions ──
 
+  const regionRecords: { id: string; branchId: string }[] = [];
+
   for (const branch of branchRecords) {
     await db.region.deleteMany({ where: { branchId: branch.id } });
     for (let i = 1; i <= 2; i++) {
@@ -195,7 +197,54 @@ async function main() {
           branchId: branch.id,
         },
       });
+      regionRecords.push({ id: region.id, branchId: branch.id });
       console.log(`REGION created: ${region.name}`);
+    }
+  }
+
+  // ── Deliverymen ──
+
+  for (const branch of branchRecords) {
+    await db.deliveryman.deleteMany({ where: { branchId: branch.id } });
+
+    const regionForBranch = regionRecords.find((r) => r.branchId === branch.id);
+
+    const deliverymen = [
+      {
+        name: `Entregador 1 - ${branch.name}`,
+        document: "123.456.789-00",
+        phone: "(21) 99999-0001",
+        contractType: "CLT",
+        mainPixKey: "entregador1@pix.com",
+        branchId: branch.id,
+        regionId: regionForBranch?.id ?? null,
+        isBlocked: false,
+      },
+      {
+        name: `Entregador 2 - ${branch.name}`,
+        document: "987.654.321-00",
+        phone: "(21) 99999-0002",
+        contractType: "PJ",
+        mainPixKey: "entregador2@pix.com",
+        branchId: branch.id,
+        regionId: regionForBranch?.id ?? null,
+        isBlocked: false,
+      },
+      {
+        name: `Entregador Bloqueado - ${branch.name}`,
+        document: "111.222.333-44",
+        phone: "(21) 99999-0003",
+        contractType: "CLT",
+        mainPixKey: "bloqueado@pix.com",
+        branchId: branch.id,
+        regionId: regionForBranch?.id ?? null,
+        isBlocked: true,
+      },
+    ];
+
+    for (const d of deliverymen) {
+      const deliveryman = await db.deliveryman.create({ data: d });
+      console.log(`DELIVERYMAN created: ${deliveryman.name}${deliveryman.isBlocked ? " (BLOCKED)" : ""}`);
     }
   }
 }
