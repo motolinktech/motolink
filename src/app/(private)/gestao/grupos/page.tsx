@@ -47,7 +47,7 @@ export default async function GruposPage({ searchParams }: GruposPageProps) {
       {result.isOk() && (
         <>
           <ContentHeader breadcrumbItems={[{ title: "Grupos" }]} />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TextSearch placeholder="Pesquisar grupos..." />
             <Button asChild>
               <Link href="/gestao/grupos/novo">Adicionar grupo</Link>

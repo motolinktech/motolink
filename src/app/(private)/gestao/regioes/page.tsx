@@ -47,7 +47,7 @@ export default async function RegioesPage({ searchParams }: RegioesPageProps) {
       {result.isOk() && (
         <>
           <ContentHeader breadcrumbItems={[{ title: "Regiões" }]} />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TextSearch placeholder="Pesquisar regiões..." />
             <Button asChild>
               <Link href="/gestao/regioes/novo">Adicionar região</Link>

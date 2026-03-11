@@ -59,8 +59,8 @@ export default async function ColaboradoresPage({ searchParams }: ColaboradoresP
       {result.isOk() && (
         <>
           <ContentHeader breadcrumbItems={[{ title: "Colaboradores" }]} />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               <TextSearch placeholder="Pesquisar colaboradores..." />
               <SelectSearch options={statusOptions} placeholder="Todos os status" paramName="status" />
             </div>

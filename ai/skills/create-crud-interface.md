@@ -157,6 +157,8 @@ Use:
 - `SelectSearch` for status/category filters when applicable
 - `Alert`, `AlertTitle`, `AlertDescription` for server-side list errors
 
+The filter/action row (filters + "Adicionar" button) must be responsive. Use `flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between` on the outer container so filters stack vertically on mobile and sit side-by-side on desktop. When there are multiple filter inputs in a row, wrap them with `flex w-full items-center gap-2 sm:w-auto`.
+
 ### 2. Create Page
 
 The create page must be a **Server Component** by default.

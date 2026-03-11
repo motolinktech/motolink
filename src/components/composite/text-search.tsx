@@ -106,7 +106,7 @@ export function TextSearch({
   };
 
   return (
-    <div className={cn("relative min-w-72", className)}>
+    <div className={cn("relative w-full md:min-w-72", className)}>
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden="true" />
       <Input
         type="text"

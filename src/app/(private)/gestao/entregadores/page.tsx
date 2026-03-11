@@ -48,7 +48,7 @@ export default async function EntregadoresPage({ searchParams }: EntregadoresPag
       {result.isOk() && (
         <>
           <ContentHeader breadcrumbItems={[{ title: "Entregadores" }]} />
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TextSearch placeholder="Pesquisar entregadores..." />
             <Button asChild>
               <Link href="/gestao/entregadores/novo">Adicionar entregador</Link>
