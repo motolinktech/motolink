@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "frontend-js-best-practices": {
+      "source": "sergiodxa/agent-skills",
+      "sourceType": "github",
+      "computedHash": "83150324ae97d350f6eb86cc1f6620441bda91c2d07562e0233b1ad868b07134"
+    }
+  }
+}

@@ -45,3 +45,5 @@ next-env.d.ts
 !.env.example
 !.env.test
 .claude
+.agent
+.agents
