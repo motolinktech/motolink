@@ -1,15 +1,18 @@
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { z } from "zod";
 import { planningPeriodConst } from "@/constants/planning-period";
 
+dayjs.extend(utc);
+
 function normalizeDateOnlyValue(value: unknown) {
   if (value instanceof Date) {
-    const parsedDate = dayjs(value);
+    const parsedDate = dayjs.utc(value);
     return parsedDate.isValid() ? parsedDate.format("YYYY-MM-DD") : value;
   }
 
   if (typeof value === "string") {
-    const parsedDate = dayjs(value);
+    const parsedDate = dayjs.utc(value);
     return parsedDate.isValid() ? parsedDate.format("YYYY-MM-DD") : value;
   }
 

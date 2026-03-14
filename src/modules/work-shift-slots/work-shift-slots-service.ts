@@ -7,6 +7,16 @@ import { convertDecimals } from "@/utils/convert-decimals";
 import { historyTracesService } from "../history-traces/history-traces-service";
 import type { WorkShiftSlotListQueryDTO, WorkShiftSlotMutateDTO } from "./work-shift-slots-types";
 
+function toWorkShiftSlotCreateData(body: WorkShiftSlotMutateDTO): Prisma.WorkShiftSlotUncheckedCreateInput {
+  const { isFreelancer: _isFreelancer, ...data } = body;
+  return data;
+}
+
+function toWorkShiftSlotUpdateData(body: WorkShiftSlotMutateDTO): Prisma.WorkShiftSlotUncheckedUpdateInput {
+  const { isFreelancer: _isFreelancer, ...data } = body;
+  return data;
+}
+
 export function workShiftSlotsService() {
   return {
     async upsert(id: string | undefined, body: WorkShiftSlotMutateDTO, loggedUserId: string) {
@@ -23,7 +33,11 @@ export function workShiftSlotsService() {
             return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
           }
 
-          const updated = await db.workShiftSlot.update({ where: { id }, data: body, include });
+          const updated = await db.workShiftSlot.update({
+            where: { id },
+            data: toWorkShiftSlotUpdateData(body),
+            include,
+          });
 
           historyTracesService()
             .create({
@@ -39,7 +53,10 @@ export function workShiftSlotsService() {
           return okAsync(convertDecimals(updated));
         }
 
-        const slot = await db.workShiftSlot.create({ data: body, include });
+        const slot = await db.workShiftSlot.create({
+          data: toWorkShiftSlotCreateData(body),
+          include,
+        });
 
         historyTracesService()
           .create({

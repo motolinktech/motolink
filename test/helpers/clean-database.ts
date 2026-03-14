@@ -19,14 +19,11 @@ const TABLE_NAMES = [
   "sessions",
 ];
 
-export async function cleanDatabase() {
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  allowExitOnIdle: true,
+});
 
-  try {
-    await pool.query(`TRUNCATE ${TABLE_NAMES.join(", ")} RESTART IDENTITY CASCADE`);
-  } finally {
-    await pool.end();
-  }
+export async function cleanDatabase() {
+  await pool.query(`TRUNCATE ${TABLE_NAMES.join(", ")} RESTART IDENTITY CASCADE`);
 }

@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { errAsync, okAsync } from "neverthrow";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
 import { db } from "@/lib/database";
@@ -6,13 +7,15 @@ import { historyTracesService } from "../history-traces/history-traces-service";
 import { planningTransformer } from "./planning-transformer";
 import type { PlanningListQueryDTO, PlanningUpsertDTO } from "./planning-types";
 
+dayjs.extend(utc);
+
 export function planningService() {
   return {
     async upsert(body: PlanningUpsertDTO, loggedUserId: string) {
       try {
         const today = dayjs().format("YYYY-MM-DD");
         const plannedDate = body.plannedDate;
-        const plannedDateTime = dayjs(plannedDate).toISOString();
+        const plannedDateTime = dayjs.utc(plannedDate).toISOString();
 
         if (plannedDate < today) {
           return errAsync({
@@ -49,8 +52,8 @@ export function planningService() {
     async listAll(query: PlanningListQueryDTO) {
       try {
         const { branchId, groupId, regionId, clientId, startAt, endAt } = query;
-        const startAtDateTime = startAt ? dayjs(startAt).toISOString() : undefined;
-        const endAtDateTime = endAt ? dayjs(endAt).toISOString() : undefined;
+        const startAtDateTime = startAt ? dayjs.utc(startAt).toISOString() : undefined;
+        const endAtDateTime = endAt ? dayjs.utc(endAt).toISOString() : undefined;
 
         const where = {
           ...(branchId && { branchId }),
