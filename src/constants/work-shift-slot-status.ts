@@ -4,6 +4,7 @@ import {
   CircleDotIcon,
   ClockIcon,
   LogInIcon,
+  MessageCircleOffIcon,
   SendIcon,
   UserXIcon,
   XCircleIcon,
@@ -20,13 +21,14 @@ export const workShiftSlotStatusConst = {
   ABSENT: "ABSENT",
   CANCELLED: "CANCELLED",
   REJECTED: "REJECTED",
+  UNANSWERED: "UNANSWERED",
 } as const;
 
 export type WorkShiftSlotStatus = (typeof workShiftSlotStatusConst)[keyof typeof workShiftSlotStatusConst];
 
 export const workShiftSlotStatusTransitions: Record<WorkShiftSlotStatus, WorkShiftSlotStatus[]> = {
   OPEN: ["INVITED", "CANCELLED"],
-  INVITED: ["CONFIRMED", "REJECTED", "CANCELLED"],
+  INVITED: ["CONFIRMED", "REJECTED", "CANCELLED", "UNANSWERED"],
   CONFIRMED: ["CHECKED_IN", "ABSENT", "CANCELLED"],
   CHECKED_IN: ["PENDING_COMPLETION", "ABSENT"],
   PENDING_COMPLETION: ["COMPLETED"],
@@ -34,6 +36,7 @@ export const workShiftSlotStatusTransitions: Record<WorkShiftSlotStatus, WorkShi
   COMPLETED: [],
   ABSENT: [],
   CANCELLED: [],
+  UNANSWERED: [],
 };
 
 export const WORK_SHIFT_SLOT_STATUS_LABELS: Record<WorkShiftSlotStatus, string> = {
@@ -46,6 +49,7 @@ export const WORK_SHIFT_SLOT_STATUS_LABELS: Record<WorkShiftSlotStatus, string> 
   ABSENT: "Ausente",
   CANCELLED: "Cancelado",
   REJECTED: "Rejeitado",
+  UNANSWERED: "Sem resposta",
 };
 
 export const WORK_SHIFT_SLOT_STATUS_COLORS: Record<WorkShiftSlotStatus, string> = {
@@ -58,6 +62,7 @@ export const WORK_SHIFT_SLOT_STATUS_COLORS: Record<WorkShiftSlotStatus, string> 
   ABSENT: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   CANCELLED: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  UNANSWERED: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 };
 
 export const WORK_SHIFT_SLOT_STATUS_ICONS: Record<WorkShiftSlotStatus, typeof CheckIcon> = {
@@ -70,4 +75,5 @@ export const WORK_SHIFT_SLOT_STATUS_ICONS: Record<WorkShiftSlotStatus, typeof Ch
   ABSENT: UserXIcon,
   CANCELLED: XCircleIcon,
   REJECTED: XIcon,
+  UNANSWERED: MessageCircleOffIcon,
 };

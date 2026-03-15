@@ -6,17 +6,29 @@ import {
   ClockIcon,
   EllipsisVerticalIcon,
   EyeIcon,
+  MessageCircleOffIcon,
   MoonIcon,
   PencilIcon,
   SendIcon,
   StickyNoteIcon,
   SunIcon,
   Trash2Icon,
+  UserXIcon,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 import { WorkShiftSlotForm } from "@/components/forms/work-shift-slot-form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -77,6 +89,8 @@ export function MonitoringWorkShiftRow({
 }: MonitoringWorkShiftRowProps) {
   const [dialogType, setDialogType] = useState<string | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [absentDialogOpen, setAbsentDialogOpen] = useState(false);
+  const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
 
   const status = slot.status as WorkShiftSlotStatus;
@@ -97,6 +111,29 @@ export function MonitoringWorkShiftRow({
     }
   };
 
+  const handleMarkAbsent = async () => {
+    const result = await executeAsync({ id: slot.id, status: "ABSENT" });
+    if (result?.data?.error) {
+      toast.error(result.data.error);
+    } else {
+      toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.ABSENT}`);
+      onRefresh?.();
+    }
+  };
+
+  const handleMarkUnanswered = async () => {
+    const result = await executeAsync({ id: slot.id, status: "UNANSWERED" });
+    if (result?.data?.error) {
+      toast.error(result.data.error);
+    } else {
+      toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.UNANSWERED}`);
+      onRefresh?.();
+    }
+  };
+
+  const isAbsent = status === "ABSENT";
+  const isUnanswered = status === "UNANSWERED";
+
   const formatTime = (val: string | null | undefined) => {
     if (!val) return "";
     return dayjs(val).format("HH:mm");
@@ -104,7 +141,12 @@ export function MonitoringWorkShiftRow({
 
   return (
     <>
-      <div className="flex items-center rounded-md border-l-4 border-l-primary bg-muted/30 px-4 py-3">
+      <div
+        className={cn(
+          "flex items-center rounded-md border-l-4 bg-muted/30 px-4 py-3",
+          isAbsent ? "border-l-orange-400" : isUnanswered ? "border-l-gray-400" : "border-l-primary",
+        )}
+      >
         <div className="flex items-center gap-4">
           <div className="min-w-80 lg:border-r lg:border-gray-200 lg:pr-4">
             <div className="flex items-center gap-2">
@@ -128,17 +170,19 @@ export function MonitoringWorkShiftRow({
             </div>
           </div>
 
-          <div className="shrink-0 text-center text-xs">
+          <div className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered) && "opacity-50")}>
             <p className="text-muted-foreground">Planejado</p>
             <p className="font-medium">
               {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
             </p>
           </div>
 
-          <div className="shrink-0 text-center text-xs">
+          <div className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered) && "opacity-50")}>
             <p className="text-muted-foreground">Real</p>
             <p className="font-medium">
-              {formatTime(slot.checkInAt)} - {formatTime(slot.checkOutAt)}
+              {isAbsent || isUnanswered
+                ? "--:-- - --:--"
+                : `${formatTime(slot.checkInAt)} - ${formatTime(slot.checkOutAt)}`}
             </p>
           </div>
 
@@ -215,6 +259,18 @@ export function MonitoringWorkShiftRow({
                   <ClockIcon className="mr-2 size-4" />
                   Editar horários
                 </DropdownMenuItem>
+                {nextTransitions.includes("UNANSWERED" as WorkShiftSlotStatus) && (
+                  <DropdownMenuItem className="text-gray-600" onClick={() => setUnansweredDialogOpen(true)}>
+                    <MessageCircleOffIcon className="mr-2 size-4" />
+                    Sem resposta
+                  </DropdownMenuItem>
+                )}
+                {nextTransitions.includes("ABSENT" as WorkShiftSlotStatus) && (
+                  <DropdownMenuItem className="text-orange-600" onClick={() => setAbsentDialogOpen(true)}>
+                    <UserXIcon className="mr-2 size-4" />
+                    Marcar ausência
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem variant="destructive" onClick={() => setDialogType("delete-shift")}>
                   <Trash2Icon className="mr-2 size-4" />
                   Excluir turno
@@ -245,6 +301,42 @@ export function MonitoringWorkShiftRow({
           <p className="text-sm text-muted-foreground">Funcionalidade em desenvolvimento.</p>
         </DialogContent>
       </Dialog>
+
+      {/* Absent confirmation dialog */}
+      <AlertDialog open={absentDialogOpen} onOpenChange={setAbsentDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar ausência</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja marcar este entregador como ausente? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleMarkAbsent}>
+              Confirmar ausência
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unanswered confirmation dialog */}
+      <AlertDialog open={unansweredDialogOpen} onOpenChange={setUnansweredDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar sem resposta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja marcar este entregador como sem resposta? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleMarkUnanswered}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit shift Sheet */}
       <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
