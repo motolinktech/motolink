@@ -106,12 +106,9 @@ export function MonitoringWorkShiftRow({
     <>
       <div className="flex items-center rounded-md border-l-4 border-l-primary bg-muted/30 px-4 py-3">
         <div className="flex items-center gap-4">
-          <div className="min-w-0 lg:border-r lg:border-gray-200 lg:pr-4">
+          <div className="min-w-80 lg:border-r lg:border-gray-200 lg:pr-4">
             <div className="flex items-center gap-2">
               <p className="max-w-[12rem] truncate text-sm font-medium">{slot.deliveryman?.name ?? "Sem entregador"}</p>
-              <Badge variant="outline" className="shrink-0">
-                {contractLabel}
-              </Badge>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
@@ -125,6 +122,9 @@ export function MonitoringWorkShiftRow({
               {slot.totalValueToPay != null && Number(slot.totalValueToPay) > 0 && (
                 <span>{formatMoneyDisplay(slot.totalValueToPay)}</span>
               )}
+              <Badge variant="outline" className="shrink-0">
+                {contractLabel}
+              </Badge>
             </div>
           </div>
 

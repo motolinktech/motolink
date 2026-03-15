@@ -35,6 +35,7 @@ export const updateWorkShiftSlotStatusAction = safeAction
     }
 
     revalidatePath("/operacional/monitoramento/diario");
+    revalidatePath("/operacional/monitoramento/semanal");
     return { success: true };
   });
 
