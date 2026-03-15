@@ -16,6 +16,7 @@ export const historyTraceEntityConst = {
   CLIENT: "CLIENT",
   PLANNING: "PLANNING",
   WORK_SHIFT_SLOT: "WORK_SHIFT_SLOT",
+  PAYMENT_REQUEST: "PAYMENT_REQUEST",
 } as const;
 
 export const historyTraceEntitiesArr = Object.values(historyTraceEntityConst);
