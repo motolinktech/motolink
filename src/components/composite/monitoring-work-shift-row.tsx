@@ -16,6 +16,7 @@ import {
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
+import { WorkShiftDetailSheet } from "@/components/composite/work-shift-detail-sheet";
 import { WorkShiftSlotForm } from "@/components/forms/work-shift-slot-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ export function MonitoringWorkShiftRow({
 }: MonitoringWorkShiftRowProps) {
   const [dialogType, setDialogType] = useState<string | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
 
   const status = slot.status as WorkShiftSlotStatus;
@@ -175,7 +177,7 @@ export function MonitoringWorkShiftRow({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDialogType("details")}>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDetailsSheetOpen(true)}>
                   <EyeIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -229,12 +231,24 @@ export function MonitoringWorkShiftRow({
         </TooltipProvider>
       </div>
 
+      {/* Details sheet */}
+      <WorkShiftDetailSheet
+        open={detailsSheetOpen}
+        onClose={() => setDetailsSheetOpen(false)}
+        slot={slot}
+        date={shiftDate}
+        clientName={client.name}
+        onEdit={() => {
+          setDetailsSheetOpen(false);
+          setEditSheetOpen(true);
+        }}
+      />
+
       {/* Other dialogs (placeholders for non-edit-shift features) */}
       <Dialog open={dialogType !== null} onOpenChange={(open) => !open && setDialogType(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogType === "details" && "Detalhes do turno"}
               {dialogType === "invite" && "Enviar convite"}
               {dialogType === "annotation" && "Adicionar anotação"}
               {dialogType === "edit-times" && "Editar horários"}
