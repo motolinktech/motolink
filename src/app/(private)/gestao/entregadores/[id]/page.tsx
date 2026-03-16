@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AccessDenied } from "@/components/composite/access-denied";
 import { ContentHeader } from "@/components/composite/content-header";
+import { DeliverymanBanHistorySection } from "@/components/composite/deliveryman-ban-history-section";
 import { DeliverymanDetailActions } from "@/components/composite/deliveryman-detail-actions";
 import { StatusBadge } from "@/components/composite/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Text } from "@/components/ui/text";
 import { ContractTypeOptions } from "@/constants/contract-type";
 import { statusConst } from "@/constants/status";
+import { clientBlocksService } from "@/modules/client-blocks/client-blocks-service";
 import { deliverymenService } from "@/modules/deliverymen/deliverymen-service";
 import { regionsService } from "@/modules/regions/regions-service";
 import { checkPagePermission } from "@/utils/check-page-permission";
@@ -57,9 +59,10 @@ export default async function EntregadorPage({ params }: EntregadorPageProps) {
 
   const { id } = await params;
 
-  const [deliverymanResult, regionsResult] = await Promise.all([
+  const [deliverymanResult, regionsResult, banHistoryResult] = await Promise.all([
     deliverymenService().getById(id),
     regionsService().listAll({ page: 1, pageSize: 100 }),
+    clientBlocksService().listHistoryByDeliveryman(id),
   ]);
 
   if (deliverymanResult.isErr()) {
@@ -75,6 +78,13 @@ export default async function EntregadorPage({ params }: EntregadorPageProps) {
   const regionMap = new Map(
     regionsResult.isOk() ? regionsResult.value.data.map((region) => [region.id, region.name]) : [],
   );
+  const banHistory = banHistoryResult.isOk()
+    ? banHistoryResult.value.map((item) => ({
+        ...item,
+        createdAt: item.createdAt.toISOString(),
+        removedAt: item.removedAt?.toISOString() ?? null,
+      }))
+    : [];
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 py-6">
@@ -157,6 +167,14 @@ export default async function EntregadorPage({ params }: EntregadorPageProps) {
           <Text variant="muted">Nenhum documento enviado.</Text>
         )}
       </section>
+
+      <Separator />
+
+      <DeliverymanBanHistorySection
+        deliverymanId={deliveryman.id}
+        items={banHistory}
+        errorMessage={banHistoryResult.isErr() ? banHistoryResult.error.reason : undefined}
+      />
 
       <Separator />
 

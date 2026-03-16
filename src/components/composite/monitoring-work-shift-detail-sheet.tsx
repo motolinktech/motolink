@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { WorkShiftSlotForm } from "@/components/forms/work-shift-slot-form";
 import { WorkShiftSlotTimesForm } from "@/components/forms/work-shift-slot-times-form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { ContractTypeOptions } from "@/constants/contract-type";
 import { PLANNING_PERIOD_LABELS, type PlanningPeriod } from "@/constants/planning-period";
 import {
@@ -43,6 +45,7 @@ import {
   workShiftSlotStatusTransitions,
 } from "@/constants/work-shift-slot-status";
 import { cn } from "@/lib/cn";
+import { banDeliverymanAction } from "@/modules/client-blocks/client-blocks-actions";
 import { formatTraceChanges } from "@/modules/history-traces/history-traces-formatter";
 import {
   cancelDiscountAction,
@@ -76,6 +79,7 @@ export interface DetailSheetSlot {
   additionalTax?: number | string;
   additionalTaxReason?: string;
   isWeekendRate?: boolean;
+  isDeliverymanBannedForClient?: boolean;
   discounts?: {
     id: string;
     amount: number | string;
@@ -139,6 +143,9 @@ export function MonitoringWorkShiftDetailSheet({
 }: MonitoringWorkShiftDetailSheetProps) {
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editTimesSheetOpen, setEditTimesSheetOpen] = useState(false);
+  const [banSheetOpen, setBanSheetOpen] = useState(false);
+  const [banConfirmOpen, setBanConfirmOpen] = useState(false);
+  const [banReason, setBanReason] = useState("");
   const [absentDialogOpen, setAbsentDialogOpen] = useState(false);
   const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -148,6 +155,7 @@ export function MonitoringWorkShiftDetailSheet({
   const [discountAmount, setDiscountAmount] = useState("");
   const [discountReason, setDiscountReason] = useState("");
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
+  const { executeAsync: executeBanDeliveryman, isExecuting: isBanningDeliveryman } = useAction(banDeliverymanAction);
   const { executeAsync: executeCreateDiscount, isExecuting: isCreatingDiscount } = useAction(createDiscountAction);
   const { executeAsync: executeCancelDiscount } = useAction(cancelDiscountAction);
 
@@ -176,6 +184,9 @@ export function MonitoringWorkShiftDetailSheet({
   const initials = slot.deliveryman ? getInitials(slot.deliveryman.name) : "??";
   const isDaily = slot.paymentForm === "DAILY";
   const isGuaranteed = slot.paymentForm === "GUARANTEED";
+  const isBannedAssigned = Boolean(slot.deliveryman && slot.isDeliverymanBannedForClient);
+  const isCurrentShiftDate = shiftDate === dayjs().format("YYYY-MM-DD");
+  const isBannedLocked = isBannedAssigned && !isCurrentShiftDate;
 
   const handleAdvanceStatus = async () => {
     if (!primaryTransition) return;
@@ -216,6 +227,33 @@ export function MonitoringWorkShiftDetailSheet({
       toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.CANCELLED}`);
       onRefresh?.();
     }
+  };
+
+  const handleBanDeliveryman = async () => {
+    if (!slot.deliveryman) return;
+
+    const reason = banReason.trim();
+    if (!reason) {
+      toast.error("Informe o motivo do banimento");
+      return;
+    }
+
+    const result = await executeBanDeliveryman({
+      deliverymanId: slot.deliveryman.id,
+      clientId: client.id,
+      reason,
+    });
+
+    if (result?.data?.error) {
+      toast.error(result.data.error);
+      return;
+    }
+
+    toast.success("Entregador banido com sucesso");
+    setBanConfirmOpen(false);
+    setBanSheetOpen(false);
+    setBanReason("");
+    onRefresh?.();
   };
 
   const handleCreateDiscount = async () => {
@@ -311,6 +349,17 @@ export function MonitoringWorkShiftDetailSheet({
           </SheetHeader>
 
           <div className="flex-1 space-y-5 px-4">
+            {isBannedAssigned && (
+              <Alert variant="destructive">
+                <BanIcon className="size-4" />
+                <AlertTitle>Entregador banido para este cliente</AlertTitle>
+                <AlertDescription>
+                  {isBannedLocked
+                    ? "Este turno permanece ativo para consulta, mas não pode mais ser editado enquanto esse banimento estiver ativo."
+                    : "O entregador está banido para este cliente, mas o turno de hoje ainda pode ser ajustado manualmente."}
+                </AlertDescription>
+              </Alert>
+            )}
             {/* Deliveryman section */}
             <div className="flex items-center gap-3">
               <Avatar size="lg">
@@ -408,7 +457,7 @@ export function MonitoringWorkShiftDetailSheet({
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descontos</p>
-                {!discountFormOpen && (
+                {!discountFormOpen && !isBannedLocked && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -421,7 +470,7 @@ export function MonitoringWorkShiftDetailSheet({
                 )}
               </div>
 
-              {discountFormOpen && (
+              {discountFormOpen && !isBannedLocked && (
                 <div className="mb-3 space-y-2 rounded-md border p-3">
                   <Input
                     type="number"
@@ -486,7 +535,7 @@ export function MonitoringWorkShiftDetailSheet({
                             {discount.createdByName} - {dayjs(discount.createdAt).format("DD/MM HH:mm")}
                           </p>
                         </div>
-                        {!isCancelled && status !== "COMPLETED" && (
+                        {!isCancelled && status !== "COMPLETED" && !isBannedLocked && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -570,13 +619,13 @@ export function MonitoringWorkShiftDetailSheet({
                   {WORK_SHIFT_SLOT_STATUS_LABELS[primaryTransition]}
                 </Button>
               )}
-              {!isTerminal && (
+              {!isTerminal && !isBannedLocked && (
                 <Button variant="outline" size="sm" className="w-full" onClick={() => setEditSheetOpen(true)}>
                   <PencilIcon className="mr-1 size-3.5" />
                   Editar
                 </Button>
               )}
-              {!isTerminal && (
+              {!isTerminal && !isBannedLocked && (
                 <Button variant="outline" size="sm" className="w-full" onClick={() => setEditTimesSheetOpen(true)}>
                   <ClockIcon className="mr-1 size-3.5" />
                   Editar horários
@@ -610,14 +659,89 @@ export function MonitoringWorkShiftDetailSheet({
                   Excluir turno
                 </Button>
               )}
-              <Button variant="destructive" size="sm" className="w-full">
-                <BanIcon className="mr-1 size-3.5" />
-                Banir entregador
-              </Button>
+              {slot.deliveryman && !slot.isDeliverymanBannedForClient && (
+                <Button variant="destructive" size="sm" className="w-full" onClick={() => setBanSheetOpen(true)}>
+                  <BanIcon className="mr-1 size-3.5" />
+                  Banir entregador
+                </Button>
+              )}
             </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <Sheet
+        open={banSheetOpen}
+        onOpenChange={(nextOpen) => {
+          setBanSheetOpen(nextOpen);
+          if (!nextOpen) {
+            setBanConfirmOpen(false);
+            setBanReason("");
+          }
+        }}
+      >
+        <SheetContent className="overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Banir entregador</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium text-destructive">Confirme o motivo do banimento</p>
+              <p className="mt-1 text-muted-foreground">
+                {slot.deliveryman?.name} não poderá ser sugerido nem atribuído a novos turnos deste cliente.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Cliente</p>
+              <p className="text-sm text-muted-foreground">{client.name}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Entregador</p>
+              <p className="text-sm text-muted-foreground">{slot.deliveryman?.name ?? "—"}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Motivo</p>
+              <Textarea
+                value={banReason}
+                onChange={(event) => setBanReason(event.target.value)}
+                placeholder="Descreva o motivo do banimento"
+                rows={5}
+              />
+            </div>
+            <Button
+              variant="destructive"
+              className="w-full"
+              disabled={!banReason.trim()}
+              onClick={() => setBanConfirmOpen(true)}
+            >
+              <BanIcon className="mr-1 size-4" />
+              Banir entregador
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={banConfirmOpen} onOpenChange={setBanConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar banimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este entregador deixará de aparecer nas sugestões e não poderá ser atribuído a novos turnos deste cliente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleBanDeliveryman}
+              disabled={isBanningDeliveryman || !banReason.trim()}
+            >
+              {isBanningDeliveryman ? <Spinner className="mr-1 size-3" /> : null}
+              Confirmar banimento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit shift Sheet */}
       <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>

@@ -146,6 +146,7 @@ function useFetchDeliverymen(url: string, debounceMs = 300) {
   const [options, setOptions] = useState<FetchOption[]>([]);
   const [rawData, setRawData] = useState<DeliverymanOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -156,6 +157,7 @@ function useFetchDeliverymen(url: string, debounceMs = 300) {
       const controller = new AbortController();
       abortRef.current = controller;
       setIsLoading(true);
+      setErrorMessage(null);
 
       try {
         const endpoint = new URL(url, window.location.origin);
@@ -163,7 +165,21 @@ function useFetchDeliverymen(url: string, debounceMs = 300) {
         if (search?.trim()) endpoint.searchParams.set("search", search.trim());
 
         const res = await fetch(endpoint.toString(), { signal: controller.signal });
-        if (!res.ok) return;
+        if (!res.ok) {
+          let message = "Não foi possível carregar os entregadores";
+
+          try {
+            const json = await res.json();
+            if (typeof json?.error === "string" && json.error) {
+              message = json.error;
+            }
+          } catch {}
+
+          setRawData([]);
+          setOptions([]);
+          setErrorMessage(message);
+          return;
+        }
 
         const json = await res.json();
         const data: DeliverymanOption[] = json.data ?? [];
@@ -172,6 +188,9 @@ function useFetchDeliverymen(url: string, debounceMs = 300) {
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         console.error("Error fetching deliverymen:", error);
+        setRawData([]);
+        setOptions([]);
+        setErrorMessage("Não foi possível carregar os entregadores");
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
       }
@@ -206,7 +225,7 @@ function useFetchDeliverymen(url: string, debounceMs = 300) {
     };
   }, []);
 
-  return { options, rawData, isLoading, handleSearch, ensureFetched };
+  return { options, rawData, isLoading, errorMessage, handleSearch, ensureFetched };
 }
 
 function isNonEmpty(val: unknown): boolean {
@@ -274,7 +293,7 @@ export function WorkShiftSlotForm({
     },
   });
 
-  const deliverymen = useFetchDeliverymen("/api/deliverymen");
+  const deliverymen = useFetchDeliverymen(`/api/deliverymen?excludeClientId=${client.id}&excludeBlocked=true`);
 
   // In edit mode, fetch the deliveryman data so payment method badges render
   useEffect(() => {
@@ -524,7 +543,7 @@ export function WorkShiftSlotForm({
           }
           isLoading={deliverymen.isLoading}
           placeholder="Buscar entregador..."
-          emptyMessage="Nenhum entregador encontrado"
+          emptyMessage={deliverymen.errorMessage ?? "Nenhum entregador encontrado"}
           className="w-full"
         />
         <FieldError errors={[errors.deliverymanId]} />

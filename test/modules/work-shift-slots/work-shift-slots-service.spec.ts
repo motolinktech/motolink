@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.AUTH_SECRET ??= "test-secret";
@@ -6,6 +8,8 @@ import { db } from "../../../src/lib/database";
 import { workShiftSlotsService } from "../../../src/modules/work-shift-slots/work-shift-slots-service";
 import type { WorkShiftSlotMutateDTO } from "../../../src/modules/work-shift-slots/work-shift-slots-types";
 import { cleanDatabase } from "../../helpers/clean-database";
+
+dayjs.extend(utc);
 
 // --- Constants -----------------------------------------------------------
 
@@ -39,6 +43,10 @@ const BASE_BODY: WorkShiftSlotMutateDTO = {
   additionalTax: 0,
   rainTax: 0,
 };
+
+function createStoredDate(daysFromToday: number) {
+  return dayjs.utc(dayjs().add(daysFromToday, "day").format("YYYY-MM-DD")).toDate();
+}
 
 // --- Test Data Factories -------------------------------------------------
 
@@ -424,6 +432,58 @@ describe("Work Shift Slots Service", () => {
       expect(result._unsafeUnwrap().status).toBe("FILLED");
     });
 
+    it("should allow editing a current-day slot that keeps a banned assigned deliveryman", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const shiftDate = createStoredDate(0);
+      const created = await createTestWorkShiftSlot({ clientId: client.id, deliverymanId: deliveryman.id, shiftDate });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          reason: "Test ban",
+        },
+      });
+
+      const result = await service.upsert(
+        created.id,
+        { ...BASE_BODY, clientId: client.id, deliverymanId: deliveryman.id, shiftDate, status: "CONFIRMED" },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().deliverymanId).toBe(deliveryman.id);
+    });
+
+    it("should block editing a past slot whose assigned deliveryman is banned for the client", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const shiftDate = createStoredDate(-1);
+      const created = await createTestWorkShiftSlot({ clientId: client.id, deliverymanId: deliveryman.id, shiftDate });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          reason: "Test ban",
+        },
+      });
+
+      const result = await service.upsert(
+        created.id,
+        { ...BASE_BODY, clientId: client.id, deliverymanId: deliveryman.id, shiftDate, status: "CONFIRMED" },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().reason).toBe(
+        "Este turno não pode ser editado porque o entregador está banido para este cliente",
+      );
+    });
+
     it("should return 404 when updating a non-existent entity", async () => {
       const client = await createTestClient();
 
@@ -468,6 +528,67 @@ describe("Work Shift Slots Service", () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().statusCode).toBe(400);
+    });
+  });
+
+  describe(".updateTimes", () => {
+    it("should allow editing times for a current-day slot that keeps a banned assigned deliveryman", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const shiftDate = createStoredDate(0);
+      const created = await createTestWorkShiftSlot({ clientId: client.id, deliverymanId: deliveryman.id, shiftDate });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          reason: "Test ban",
+        },
+      });
+
+      const result = await service.updateTimes(
+        {
+          id: created.id,
+          checkInAt: "08:15",
+          checkOutAt: "18:05",
+        },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().checkInAt).not.toBeNull();
+      expect(result._unsafeUnwrap().checkOutAt).not.toBeNull();
+    });
+
+    it("should block editing times for a past slot whose assigned deliveryman is banned for the client", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const shiftDate = createStoredDate(-1);
+      const created = await createTestWorkShiftSlot({ clientId: client.id, deliverymanId: deliveryman.id, shiftDate });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          reason: "Test ban",
+        },
+      });
+
+      const result = await service.updateTimes(
+        {
+          id: created.id,
+          checkInAt: "08:15",
+          checkOutAt: "18:05",
+        },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().reason).toBe(
+        "Este turno não pode ser editado porque o entregador está banido para este cliente",
+      );
     });
   });
 

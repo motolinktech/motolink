@@ -1,3 +1,5 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { errAsync, okAsync } from "neverthrow";
 import type { Prisma } from "@/../generated/prisma/client";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
@@ -11,6 +13,8 @@ import type {
   WorkShiftSlotMutateDTO,
   WorkShiftSlotUpdateTimesDTO,
 } from "./work-shift-slots-types";
+
+dayjs.extend(utc);
 
 function calculateTotalValueToPay(body: WorkShiftSlotMutateDTO): number {
   const { paymentForm, additionalTax, rainTax } = body;
@@ -29,6 +33,22 @@ function calculateTotalValueToPay(body: WorkShiftSlotMutateDTO): number {
 
 const TERMINAL_STATUSES = ["CANCELLED", "ABSENT", "REJECTED", "UNANSWERED"];
 
+function getTodayDateKey() {
+  return dayjs().format("YYYY-MM-DD");
+}
+
+function getStoredDateKey(date: Date) {
+  return dayjs.utc(date).format("YYYY-MM-DD");
+}
+
+function isCurrentShiftDate(date: Date) {
+  return getStoredDateKey(date) === getTodayDateKey();
+}
+
+function isBannedAssignedSlotLocked(date: Date) {
+  return !isCurrentShiftDate(date);
+}
+
 async function findOverlappingSlots(params: {
   deliverymanId: string;
   shiftDate: Date;
@@ -46,6 +66,12 @@ async function findOverlappingSlots(params: {
       ...(params.excludeSlotId && { id: { not: params.excludeSlotId } }),
     },
     select: { id: true },
+  });
+}
+
+async function findClientBlock(clientId: string, deliverymanId: string) {
+  return db.clientBlock.findUnique({
+    where: { clientId_deliverymanId: { clientId, deliverymanId } },
   });
 }
 
@@ -83,6 +109,16 @@ export function workShiftSlotsService() {
             return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
           }
 
+          if (existing.deliverymanId) {
+            const existingBan = await findClientBlock(existing.clientId, existing.deliverymanId);
+            if (existingBan && isBannedAssignedSlotLocked(existing.shiftDate)) {
+              return errAsync({
+                reason: "Este turno não pode ser editado porque o entregador está banido para este cliente",
+                statusCode: 400,
+              });
+            }
+          }
+
           if (body.deliverymanId) {
             const overlaps = await findOverlappingSlots({
               deliverymanId: body.deliverymanId,
@@ -96,6 +132,17 @@ export function workShiftSlotsService() {
                 reason: "Este entregador já possui um turno com horário conflitante nesta data",
                 statusCode: 400,
               });
+            }
+
+            const ban = await findClientBlock(body.clientId, body.deliverymanId);
+            const isKeepingCurrentBannedAssignment =
+              !!ban &&
+              existing.deliverymanId === body.deliverymanId &&
+              existing.clientId === body.clientId &&
+              isCurrentShiftDate(existing.shiftDate);
+
+            if (ban && !isKeepingCurrentBannedAssignment) {
+              return errAsync({ reason: "Este entregador está banido para este cliente", statusCode: 400 });
             }
           }
 
@@ -131,6 +178,11 @@ export function workShiftSlotsService() {
               reason: "Este entregador já possui um turno com horário conflitante nesta data",
               statusCode: 400,
             });
+          }
+
+          const ban = await findClientBlock(body.clientId, body.deliverymanId);
+          if (ban) {
+            return errAsync({ reason: "Este entregador está banido para este cliente", statusCode: 400 });
           }
         }
 
@@ -292,6 +344,16 @@ export function workShiftSlotsService() {
           return errAsync({ reason: "Não é possível editar horários de um turno finalizado", statusCode: 400 });
         }
 
+        if (existing.deliverymanId) {
+          const existingBan = await findClientBlock(existing.clientId, existing.deliverymanId);
+          if (existingBan && isBannedAssignedSlotLocked(existing.shiftDate)) {
+            return errAsync({
+              reason: "Este turno não pode ser editado porque o entregador está banido para este cliente",
+              statusCode: 400,
+            });
+          }
+        }
+
         const parseTime = (value: string | null): Date | null => {
           if (!value) return null;
           return new Date(`1970-01-01T${value}:00.000Z`);
@@ -361,6 +423,16 @@ export function workShiftSlotsService() {
           overlapTracker.set(slot.deliverymanId, list);
         }
 
+        // Batch-fetch banned deliverymen for this client
+        const bannedBlocks =
+          deliverymanIds.length > 0
+            ? await db.clientBlock.findMany({
+                where: { clientId, deliverymanId: { in: deliverymanIds } },
+                select: { deliverymanId: true },
+              })
+            : [];
+        const bannedSet = new Set(bannedBlocks.map((b) => b.deliverymanId));
+
         let degradedCount = 0;
         const createdSlots = [];
 
@@ -369,14 +441,20 @@ export function workShiftSlotsService() {
           let status: string = slot.deliverymanId ? "INVITED" : "OPEN";
 
           if (assignDeliveryman) {
-            const tracked = overlapTracker.get(assignDeliveryman) ?? [];
-            if (hasOverlapInList(tracked, slot.startTime, slot.endTime)) {
+            if (bannedSet.has(assignDeliveryman)) {
               assignDeliveryman = null;
               status = "OPEN";
               degradedCount++;
             } else {
-              tracked.push({ startTime: slot.startTime, endTime: slot.endTime });
-              overlapTracker.set(assignDeliveryman, tracked);
+              const tracked = overlapTracker.get(assignDeliveryman) ?? [];
+              if (hasOverlapInList(tracked, slot.startTime, slot.endTime)) {
+                assignDeliveryman = null;
+                status = "OPEN";
+                degradedCount++;
+              } else {
+                tracked.push({ startTime: slot.startTime, endTime: slot.endTime });
+                overlapTracker.set(assignDeliveryman, tracked);
+              }
             }
           }
 

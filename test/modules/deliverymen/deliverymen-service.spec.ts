@@ -32,6 +32,24 @@ async function createTestRegion(overrides: { name?: string; branchId?: string } 
   });
 }
 
+async function createTestClient(overrides: { name?: string; branchId?: string } = {}) {
+  const branchId = overrides.branchId ?? (await createTestBranch()).id;
+  return db.client.create({
+    data: {
+      name: overrides.name ?? "Test Client",
+      cnpj: `${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(0, 14),
+      cep: "01001000",
+      street: "Rua Teste",
+      number: "123",
+      city: "Sao Paulo",
+      neighborhood: "Centro",
+      uf: "SP",
+      contactName: "Contato Teste",
+      branchId,
+    },
+  });
+}
+
 async function createTestDeliveryman(
   overrides: {
     name?: string;
@@ -220,6 +238,65 @@ describe("Deliverymen Service", () => {
       expect(data).toHaveLength(1);
       expect(pagination.total).toBe(1);
       expect(data[0].name).toBe("Active");
+    });
+
+    it("should include globally blocked deliverymen by default", async () => {
+      const branch = await createTestBranch();
+      await createTestDeliveryman({ name: "Active", branchId: branch.id });
+      await createTestDeliveryman({ name: "Blocked", branchId: branch.id, isBlocked: true });
+
+      const result = await service.listAll({ page: 1, pageSize: 10 });
+
+      expect(result.isOk()).toBe(true);
+      const { data, pagination } = result._unsafeUnwrap();
+      expect(data).toHaveLength(2);
+      expect(pagination.total).toBe(2);
+      expect(data.map((item) => item.name).sort()).toEqual(["Active", "Blocked"]);
+    });
+
+    it("should exclude globally blocked deliverymen when requested", async () => {
+      const branch = await createTestBranch();
+      await createTestDeliveryman({ name: "Active", branchId: branch.id });
+      await createTestDeliveryman({ name: "Blocked", branchId: branch.id, isBlocked: true });
+
+      const result = await service.listAll({ page: 1, pageSize: 10, excludeBlocked: true });
+
+      expect(result.isOk()).toBe(true);
+      const { data, pagination } = result._unsafeUnwrap();
+      expect(data).toHaveLength(1);
+      expect(pagination.total).toBe(1);
+      expect(data[0].name).toBe("Active");
+    });
+
+    it("should exclude deliverymen banned for the requested client only", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const otherClient = await createTestClient({ name: "Other Client", branchId: branch.id });
+      const allowed = await createTestDeliveryman({ name: "Allowed", branchId: branch.id });
+      const bannedForClient = await createTestDeliveryman({ name: "Banned", branchId: branch.id });
+      const bannedForOtherClient = await createTestDeliveryman({ name: "Other Client Ban", branchId: branch.id });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: client.id,
+          deliverymanId: bannedForClient.id,
+          reason: "Test ban",
+        },
+      });
+
+      await db.clientBlock.create({
+        data: {
+          clientId: otherClient.id,
+          deliverymanId: bannedForOtherClient.id,
+          reason: "Other client ban",
+        },
+      });
+
+      const result = await service.listAll({ page: 1, pageSize: 10, excludeClientId: client.id });
+
+      expect(result.isOk()).toBe(true);
+      const { data } = result._unsafeUnwrap();
+      expect(data.map((item) => item.id).sort()).toEqual([allowed.id, bannedForOtherClient.id].sort());
     });
 
     it("should return empty result when no deliverymen match", async () => {

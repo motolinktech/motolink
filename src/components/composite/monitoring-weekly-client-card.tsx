@@ -105,6 +105,7 @@ interface WorkShiftSlot {
   additionalTax?: number | string;
   additionalTaxReason?: string;
   isWeekendRate?: boolean;
+  isDeliverymanBannedForClient?: boolean;
 }
 
 interface PlanningRecord {

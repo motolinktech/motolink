@@ -47,6 +47,8 @@ export const deliverymanListQuerySchema = z.object({
   search: z.string().optional(),
   branchId: z.uuid().optional(),
   regionId: z.uuid().optional(),
+  excludeClientId: z.string().uuid().optional(),
+  excludeBlocked: z.coerce.boolean().optional(),
 });
 
 export type DeliverymanListQueryDTO = z.infer<typeof deliverymanListQuerySchema>;

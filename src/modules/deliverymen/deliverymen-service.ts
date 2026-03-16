@@ -1,4 +1,5 @@
 import { errAsync, okAsync } from "neverthrow";
+import type { Prisma } from "@/../generated/prisma/client";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
 import { db } from "@/lib/database";
 import { historyTracesService } from "../history-traces/history-traces-service";
@@ -72,13 +73,15 @@ export function deliverymenService() {
 
     async listAll(query: DeliverymanListQueryDTO) {
       try {
-        const { page, pageSize, search, branchId, regionId } = query;
+        const { page, pageSize, search, branchId, regionId, excludeClientId, excludeBlocked } = query;
         const skip = (page - 1) * pageSize;
 
-        const where = {
+        const where: Prisma.DeliverymanWhereInput = {
           isDeleted: false,
+          ...(excludeBlocked && { isBlocked: false }),
           ...(branchId && { branchId }),
           ...(regionId && { regionId }),
+          ...(excludeClientId && { blocks: { none: { clientId: excludeClientId } } }),
           ...(search && {
             OR: [{ name: { contains: search, mode: "insensitive" as const } }, { phone: { contains: search } }],
           }),

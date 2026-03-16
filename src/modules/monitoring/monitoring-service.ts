@@ -20,6 +20,22 @@ const monitoringWorkShiftInclude = {
   discounts: { orderBy: { createdAt: "desc" as const } },
 } as const;
 
+function createClientBanLookup(blocks: Array<{ clientId: string; deliverymanId: string }>) {
+  return new Set(blocks.map((block) => `${block.clientId}:${block.deliverymanId}`));
+}
+
+function withClientBanState<T extends { clientId: string; deliverymanId: string | null }>(
+  workShifts: T[],
+  banLookup: Set<string>,
+) {
+  return workShifts.map((workShift) => ({
+    ...workShift,
+    isDeliverymanBannedForClient: workShift.deliverymanId
+      ? banLookup.has(`${workShift.clientId}:${workShift.deliverymanId}`)
+      : false,
+  }));
+}
+
 export function monitoringService() {
   return {
     async getDaily(query: MonitoringQueryDTO) {
@@ -63,6 +79,22 @@ export function monitoringService() {
           }),
         ]);
 
+        const deliverymanIds = [
+          ...new Set(workShifts.map((workShift) => workShift.deliverymanId).filter(Boolean)),
+        ] as string[];
+        const clientBlocks =
+          deliverymanIds.length > 0
+            ? await db.clientBlock.findMany({
+                where: {
+                  clientId: { in: clientIds },
+                  deliverymanId: { in: deliverymanIds },
+                },
+                select: { clientId: true, deliverymanId: true },
+              })
+            : [];
+        const banLookup = createClientBanLookup(clientBlocks);
+        const workShiftsWithBanState = withClientBanState(workShifts, banLookup);
+
         const plannedByClientId = new Map<string, typeof planned>();
         for (const planning of planned) {
           const clientPlannings = plannedByClientId.get(planning.clientId) ?? [];
@@ -70,8 +102,8 @@ export function monitoringService() {
           plannedByClientId.set(planning.clientId, clientPlannings);
         }
 
-        const workShiftsByClientId = new Map<string, typeof workShifts>();
-        for (const workShift of workShifts) {
+        const workShiftsByClientId = new Map<string, typeof workShiftsWithBanState>();
+        for (const workShift of workShiftsWithBanState) {
           const clientWorkShifts = workShiftsByClientId.get(workShift.clientId) ?? [];
           clientWorkShifts.push(workShift);
           workShiftsByClientId.set(workShift.clientId, clientWorkShifts);
@@ -134,6 +166,22 @@ export function monitoringService() {
           }),
         ]);
 
+        const deliverymanIds = [
+          ...new Set(workShifts.map((workShift) => workShift.deliverymanId).filter(Boolean)),
+        ] as string[];
+        const clientBlocks =
+          deliverymanIds.length > 0
+            ? await db.clientBlock.findMany({
+                where: {
+                  clientId: { in: clientIds },
+                  deliverymanId: { in: deliverymanIds },
+                },
+                select: { clientId: true, deliverymanId: true },
+              })
+            : [];
+        const banLookup = createClientBanLookup(clientBlocks);
+        const workShiftsWithBanState = withClientBanState(workShifts, banLookup);
+
         const plannedByClientDate = new Map<string, Map<string, typeof planned>>();
         for (const planning of planned) {
           const dateStr = dayjs.utc(planning.plannedDate).format("YYYY-MM-DD");
@@ -147,8 +195,8 @@ export function monitoringService() {
           dateMap.set(dateStr, datePlannings);
         }
 
-        const workShiftsByClientDate = new Map<string, Map<string, typeof workShifts>>();
-        for (const workShift of workShifts) {
+        const workShiftsByClientDate = new Map<string, Map<string, typeof workShiftsWithBanState>>();
+        for (const workShift of workShiftsWithBanState) {
           const dateStr = dayjs.utc(workShift.shiftDate).format("YYYY-MM-DD");
           let dateMap = workShiftsByClientDate.get(workShift.clientId);
           if (!dateMap) {

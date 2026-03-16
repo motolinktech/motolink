@@ -111,6 +111,7 @@ interface WorkShiftSlot {
   additionalTax?: number | string;
   additionalTaxReason?: string;
   isWeekendRate?: boolean;
+  isDeliverymanBannedForClient?: boolean;
   logs?: Array<{ timestamp: string; description: string }>;
 }
 
