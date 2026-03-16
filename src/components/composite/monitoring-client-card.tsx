@@ -82,6 +82,20 @@ interface WorkShiftSlot {
   deliverymenPaymentValue: string;
   totalValueToPay?: number | string;
   deliveryman?: { id: string; name: string } | null;
+  deliverymanAmountDay?: number | string;
+  deliverymanAmountNight?: number | string;
+  deliverymanPaymentType?: string;
+  paymentForm?: string;
+  guaranteedQuantityDay?: number;
+  guaranteedQuantityNight?: number;
+  guaranteedDayTax?: number | string;
+  guaranteedNightTax?: number | string;
+  deliverymanPerDeliveryDay?: number | string;
+  deliverymanPerDeliveryNight?: number | string;
+  additionalTax?: number | string;
+  additionalTaxReason?: string;
+  isWeekendRate?: boolean;
+  logs?: Array<{ timestamp: string; description: string }>;
 }
 
 interface PlanningRecord {
@@ -97,6 +111,19 @@ interface MonitoringClientCardProps {
   shiftDate: string;
   onRefresh?: () => void;
 }
+
+const STATUS_SORT_ORDER: Record<string, number> = {
+  OPEN: 0,
+  INVITED: 1,
+  CONFIRMED: 2,
+  CHECKED_IN: 3,
+  PENDING_COMPLETION: 4,
+  COMPLETED: 5,
+  ABSENT: 6,
+  UNANSWERED: 7,
+  REJECTED: 8,
+  CANCELLED: 9,
+};
 
 function isNonEmpty(val: unknown): boolean {
   if (val === null || val === undefined) return false;
@@ -174,11 +201,16 @@ export function MonitoringClientCard({
     const planning = plannings.find((p) => p.period === period);
     const plannedCount = planning?.plannedCount ?? 0;
     const periodSlots = workShiftSlots.filter((s) => s.period.some((p) => p.toUpperCase() === period));
+    const sortedSlots = [...periodSlots].sort((a, b) => {
+      const orderA = STATUS_SORT_ORDER[a.status] ?? 99;
+      const orderB = STATUS_SORT_ORDER[b.status] ?? 99;
+      return orderA - orderB;
+    });
     const periodLabel = PLANNING_PERIOD_LABELS[period];
 
     const rows: React.ReactNode[] = [];
 
-    for (const slot of periodSlots) {
+    for (const slot of sortedSlots) {
       rows.push(
         <MonitoringWorkShiftRow
           key={slot.id}

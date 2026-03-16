@@ -8,7 +8,6 @@ import {
   MapPinIcon,
   MoonIcon,
   PackageIcon,
-  PencilIcon,
   PlusIcon,
   ShieldCheckIcon,
   SunIcon,
@@ -20,13 +19,10 @@ import { useState } from "react";
 import { WorkShiftSlotForm } from "@/components/forms/work-shift-slot-form";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PAYMENT_TYPE_LABELS, PERIOD_TYPE_LABELS } from "@/constants/commercial-conditions";
-import { ContractTypeOptions } from "@/constants/contract-type";
 import { PLANNING_PERIOD_LABELS, type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
 import {
   WORK_SHIFT_SLOT_STATUS_COLORS,
@@ -35,6 +31,7 @@ import {
 } from "@/constants/work-shift-slot-status";
 import { cn } from "@/lib/cn";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
+import { MonitoringWorkShiftDetailSheet } from "./monitoring-work-shift-detail-sheet";
 
 interface CommercialCondition {
   bagsStatus?: string;
@@ -80,6 +77,19 @@ interface WorkShiftSlot {
   deliverymenPaymentValue: string;
   totalValueToPay?: number | string;
   deliveryman?: { id: string; name: string } | null;
+  deliverymanAmountDay?: number | string;
+  deliverymanAmountNight?: number | string;
+  deliverymanPaymentType?: string;
+  paymentForm?: string;
+  guaranteedQuantityDay?: number;
+  guaranteedQuantityNight?: number;
+  guaranteedDayTax?: number | string;
+  guaranteedNightTax?: number | string;
+  deliverymanPerDeliveryDay?: number | string;
+  deliverymanPerDeliveryNight?: number | string;
+  additionalTax?: number | string;
+  additionalTaxReason?: string;
+  isWeekendRate?: boolean;
 }
 
 interface PlanningRecord {
@@ -360,90 +370,16 @@ export function MonitoringWeeklyClientCard({
         </CardContent>
       </Card>
 
-      {selectedSlot &&
-        (() => {
-          const slot = selectedSlot.slot;
-          const status = slot.status as WorkShiftSlotStatus;
-          const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
-          const statusColor = WORK_SHIFT_SLOT_STATUS_COLORS[status] ?? "";
-          const contractLabel =
-            ContractTypeOptions.find((o) => o.value === slot.contractType)?.label ?? slot.contractType;
-          const periodLabels = slot.period
-            .map((p) => PLANNING_PERIOD_LABELS[p.toUpperCase() as PlanningPeriod])
-            .filter(Boolean)
-            .join(", ");
-
-          return (
-            <Dialog open onOpenChange={(open) => !open && setSelectedSlot(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Detalhes do turno</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>{slot.deliveryman ? getInitials(slot.deliveryman.name) : "??"}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{slot.deliveryman?.name ?? "Sem entregador"}</p>
-                      <p className="text-sm text-muted-foreground">{contractLabel}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Período</p>
-                      <p className="font-medium">{periodLabels}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Status</p>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          statusColor,
-                        )}
-                      >
-                        {statusLabel}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Horário planejado</p>
-                      <p className="font-medium">
-                        {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Horário real</p>
-                      <p className="font-medium">
-                        {formatTime(slot.checkInAt) || "--:--"} - {formatTime(slot.checkOutAt) || "--:--"}
-                      </p>
-                    </div>
-                    {slot.totalValueToPay != null && Number(slot.totalValueToPay) > 0 && (
-                      <div>
-                        <p className="text-muted-foreground">Valor</p>
-                        <p className="font-medium">{formatMoneyDisplay(slot.totalValueToPay)}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditSheet({ slot: selectedSlot.slot, date: selectedSlot.date });
-                        setSelectedSlot(null);
-                      }}
-                    >
-                      <PencilIcon className="mr-1 size-3.5" />
-                      Editar
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
+      {selectedSlot && (
+        <MonitoringWorkShiftDetailSheet
+          slot={selectedSlot.slot}
+          client={formClient}
+          shiftDate={selectedSlot.date}
+          open
+          onOpenChange={(open) => !open && setSelectedSlot(null)}
+          onRefresh={onRefresh}
+        />
+      )}
 
       <Sheet open={addSheet !== null} onOpenChange={(open) => !open && setAddSheet(null)}>
         <SheetContent className="overflow-y-auto sm:max-w-[30vw]">

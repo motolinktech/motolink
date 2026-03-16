@@ -80,8 +80,7 @@ async function createTestPaymentRequest(
 ) {
   const branch = await createTestBranch();
   const deliverymanId = overrides.deliverymanId ?? (await createTestDeliveryman({ branchId: branch.id })).id;
-  const workShiftSlotId =
-    overrides.workShiftSlotId ?? (await createTestWorkShiftSlot({ deliverymanId })).id;
+  const workShiftSlotId = overrides.workShiftSlotId ?? (await createTestWorkShiftSlot({ deliverymanId })).id;
   return db.paymentRequest.create({
     data: {
       workShiftSlotId,

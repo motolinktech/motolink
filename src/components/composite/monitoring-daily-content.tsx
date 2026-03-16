@@ -109,7 +109,21 @@ interface MonitoringClient {
     checkInAt?: string | null;
     checkOutAt?: string | null;
     deliverymenPaymentValue: string;
+    totalValueToPay?: number | string;
     deliveryman?: { id: string; name: string } | null;
+    deliverymanAmountDay?: number | string;
+    deliverymanAmountNight?: number | string;
+    deliverymanPaymentType?: string;
+    paymentForm?: string;
+    guaranteedQuantityDay?: number;
+    guaranteedQuantityNight?: number;
+    guaranteedDayTax?: number | string;
+    guaranteedNightTax?: number | string;
+    deliverymanPerDeliveryDay?: number | string;
+    deliverymanPerDeliveryNight?: number | string;
+    additionalTax?: number | string;
+    additionalTaxReason?: string;
+    isWeekendRate?: boolean;
   }>;
 }
 

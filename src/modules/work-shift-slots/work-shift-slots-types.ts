@@ -40,3 +40,11 @@ export const workShiftSlotListQuerySchema = z.object({
 });
 
 export type WorkShiftSlotListQueryDTO = z.infer<typeof workShiftSlotListQuerySchema>;
+
+export const workShiftSlotUpdateTimesSchema = z.object({
+  id: z.string().uuid({ message: "ID do turno inválido" }),
+  checkInAt: z.string().nullable(),
+  checkOutAt: z.string().nullable(),
+});
+
+export type WorkShiftSlotUpdateTimesDTO = z.infer<typeof workShiftSlotUpdateTimesSchema>;

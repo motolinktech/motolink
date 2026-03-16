@@ -5,7 +5,11 @@ import { type WorkShiftSlotStatus, workShiftSlotStatusTransitions } from "@/cons
 import { db } from "@/lib/database";
 import { convertDecimals } from "@/utils/convert-decimals";
 import { historyTracesService } from "../history-traces/history-traces-service";
-import type { WorkShiftSlotListQueryDTO, WorkShiftSlotMutateDTO } from "./work-shift-slots-types";
+import type {
+  WorkShiftSlotListQueryDTO,
+  WorkShiftSlotMutateDTO,
+  WorkShiftSlotUpdateTimesDTO,
+} from "./work-shift-slots-types";
 
 function calculateTotalValueToPay(body: WorkShiftSlotMutateDTO): number {
   const { paymentForm, additionalTax } = body;
@@ -193,6 +197,56 @@ export function workShiftSlotsService() {
       } catch (error) {
         console.error("Error updating work shift slot status:", error);
         return errAsync({ reason: "Não foi possível atualizar o status do turno de trabalho", statusCode: 500 });
+      }
+    },
+
+    async updateTimes(input: WorkShiftSlotUpdateTimesDTO, loggedUserId: string) {
+      try {
+        const include = {
+          client: { select: { id: true, name: true } },
+          deliveryman: { select: { id: true, name: true } },
+        } as const;
+
+        const existing = await db.workShiftSlot.findUnique({ where: { id: input.id } });
+
+        if (!existing) {
+          return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
+        }
+
+        const terminalStatuses = ["ABSENT", "CANCELLED", "REJECTED", "UNANSWERED", "COMPLETED"];
+        if (terminalStatuses.includes(existing.status)) {
+          return errAsync({ reason: "Não é possível editar horários de um turno finalizado", statusCode: 400 });
+        }
+
+        const parseTime = (value: string | null): Date | null => {
+          if (!value) return null;
+          return new Date(`1970-01-01T${value}:00.000Z`);
+        };
+
+        const checkInAt = parseTime(input.checkInAt);
+        const checkOutAt = parseTime(input.checkOutAt);
+
+        const updated = await db.workShiftSlot.update({
+          where: { id: input.id },
+          data: { checkInAt, checkOutAt },
+          include,
+        });
+
+        historyTracesService()
+          .create({
+            userId: loggedUserId,
+            action: historyTraceActionConst.UPDATED,
+            entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+            entityId: updated.id,
+            oldObject: existing,
+            newObject: updated,
+          })
+          .catch(() => {});
+
+        return okAsync(convertDecimals(updated));
+      } catch (error) {
+        console.error("Error updating work shift slot times:", error);
+        return errAsync({ reason: "Não foi possível atualizar os horários do turno", statusCode: 500 });
       }
     },
 

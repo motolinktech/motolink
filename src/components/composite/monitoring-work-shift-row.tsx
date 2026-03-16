@@ -10,7 +10,6 @@ import {
   MoonIcon,
   PencilIcon,
   SendIcon,
-  StickyNoteIcon,
   SunIcon,
   Trash2Icon,
   UserXIcon,
@@ -19,6 +18,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 import { WorkShiftSlotForm } from "@/components/forms/work-shift-slot-form";
+import { WorkShiftSlotTimesForm } from "@/components/forms/work-shift-slot-times-form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +53,7 @@ import {
 import { cn } from "@/lib/cn";
 import { updateWorkShiftSlotStatusAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
+import { MonitoringWorkShiftDetailSheet } from "./monitoring-work-shift-detail-sheet";
 
 type FormClient = Parameters<typeof WorkShiftSlotForm>[0]["client"];
 
@@ -68,6 +69,19 @@ interface WorkShiftSlot {
   deliverymenPaymentValue: string;
   totalValueToPay?: number | string;
   deliveryman?: { id: string; name: string } | null;
+  deliverymanAmountDay?: number | string;
+  deliverymanAmountNight?: number | string;
+  deliverymanPaymentType?: string;
+  paymentForm?: string;
+  guaranteedQuantityDay?: number;
+  guaranteedQuantityNight?: number;
+  guaranteedDayTax?: number | string;
+  guaranteedNightTax?: number | string;
+  deliverymanPerDeliveryDay?: number | string;
+  deliverymanPerDeliveryNight?: number | string;
+  additionalTax?: number | string;
+  additionalTaxReason?: string;
+  isWeekendRate?: boolean;
 }
 
 interface MonitoringWorkShiftRowProps {
@@ -89,8 +103,11 @@ export function MonitoringWorkShiftRow({
 }: MonitoringWorkShiftRowProps) {
   const [dialogType, setDialogType] = useState<string | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [editTimesSheetOpen, setEditTimesSheetOpen] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [absentDialogOpen, setAbsentDialogOpen] = useState(false);
   const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
 
   const status = slot.status as WorkShiftSlotStatus;
@@ -131,8 +148,21 @@ export function MonitoringWorkShiftRow({
     }
   };
 
+  const handleCancelShift = async () => {
+    const result = await executeAsync({ id: slot.id, status: "CANCELLED" });
+    if (result?.data?.error) {
+      toast.error(result.data.error);
+    } else {
+      toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.CANCELLED}`);
+      onRefresh?.();
+    }
+  };
+
+  const terminalStatuses: WorkShiftSlotStatus[] = ["ABSENT", "CANCELLED", "REJECTED", "UNANSWERED", "COMPLETED"];
+  const isTerminal = terminalStatuses.includes(status);
   const isAbsent = status === "ABSENT";
   const isUnanswered = status === "UNANSWERED";
+  const isCancelled = status === "CANCELLED";
 
   const formatTime = (val: string | null | undefined) => {
     if (!val) return "";
@@ -144,7 +174,7 @@ export function MonitoringWorkShiftRow({
       <div
         className={cn(
           "flex items-center rounded-md border-l-4 bg-muted/30 px-4 py-3",
-          isAbsent ? "border-l-orange-400" : isUnanswered ? "border-l-gray-400" : "border-l-primary",
+          isAbsent ? "border-l-orange-400" : isUnanswered || isCancelled ? "border-l-gray-400" : "border-l-primary",
         )}
       >
         <div className="flex items-center gap-4">
@@ -170,17 +200,21 @@ export function MonitoringWorkShiftRow({
             </div>
           </div>
 
-          <div className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered) && "opacity-50")}>
+          <div
+            className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered || isCancelled) && "opacity-50")}
+          >
             <p className="text-muted-foreground">Planejado</p>
             <p className="font-medium">
               {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
             </p>
           </div>
 
-          <div className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered) && "opacity-50")}>
+          <div
+            className={cn("shrink-0 text-center text-xs", (isAbsent || isUnanswered || isCancelled) && "opacity-50")}
+          >
             <p className="text-muted-foreground">Real</p>
             <p className="font-medium">
-              {isAbsent || isUnanswered
+              {isAbsent || isUnanswered || isCancelled
                 ? "--:-- - --:--"
                 : `${formatTime(slot.checkInAt)} - ${formatTime(slot.checkOutAt)}`}
             </p>
@@ -219,7 +253,7 @@ export function MonitoringWorkShiftRow({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDialogType("details")}>
+                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDetailSheetOpen(true)}>
                   <EyeIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -247,18 +281,18 @@ export function MonitoringWorkShiftRow({
                 <TooltipContent>Mais ações</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem onClick={() => setDialogType("annotation")}>
-                  <StickyNoteIcon className="mr-2 size-4" />
-                  Adicionar anotação
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEditSheetOpen(true)}>
-                  <PencilIcon className="mr-2 size-4" />
-                  Editar turno
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setDialogType("edit-times")}>
-                  <ClockIcon className="mr-2 size-4" />
-                  Editar horários
-                </DropdownMenuItem>
+                {!isTerminal && (
+                  <DropdownMenuItem onClick={() => setEditSheetOpen(true)}>
+                    <PencilIcon className="mr-2 size-4" />
+                    Editar turno
+                  </DropdownMenuItem>
+                )}
+                {!isTerminal && (
+                  <DropdownMenuItem onClick={() => setEditTimesSheetOpen(true)}>
+                    <ClockIcon className="mr-2 size-4" />
+                    Editar horários
+                  </DropdownMenuItem>
+                )}
                 {nextTransitions.includes("UNANSWERED" as WorkShiftSlotStatus) && (
                   <DropdownMenuItem className="text-gray-600" onClick={() => setUnansweredDialogOpen(true)}>
                     <MessageCircleOffIcon className="mr-2 size-4" />
@@ -271,10 +305,12 @@ export function MonitoringWorkShiftRow({
                     Marcar ausência
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem variant="destructive" onClick={() => setDialogType("delete-shift")}>
-                  <Trash2Icon className="mr-2 size-4" />
-                  Excluir turno
-                </DropdownMenuItem>
+                {(status === "OPEN" || status === "INVITED") && (
+                  <DropdownMenuItem variant="destructive" onClick={() => setCancelDialogOpen(true)}>
+                    <Trash2Icon className="mr-2 size-4" />
+                    Excluir turno
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem variant="destructive" onClick={() => setDialogType("ban")}>
                   <BanIcon className="mr-2 size-4" />
                   Banir entregador
@@ -285,16 +321,22 @@ export function MonitoringWorkShiftRow({
         </TooltipProvider>
       </div>
 
+      {/* Detail Sheet */}
+      <MonitoringWorkShiftDetailSheet
+        slot={slot}
+        client={client}
+        shiftDate={shiftDate}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        onRefresh={onRefresh}
+      />
+
       {/* Other dialogs (placeholders for non-edit-shift features) */}
       <Dialog open={dialogType !== null} onOpenChange={(open) => !open && setDialogType(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogType === "details" && "Detalhes do turno"}
               {dialogType === "invite" && "Enviar convite"}
-              {dialogType === "annotation" && "Adicionar anotação"}
-              {dialogType === "edit-times" && "Editar horários"}
-              {dialogType === "delete-shift" && "Excluir turno"}
               {dialogType === "ban" && "Banir entregador"}
             </DialogTitle>
           </DialogHeader>
@@ -338,6 +380,24 @@ export function MonitoringWorkShiftRow({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Cancel shift confirmation dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar turno</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar este turno? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleCancelShift}>
+              Confirmar cancelamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Edit shift Sheet */}
       <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
         <SheetContent className="overflow-y-auto sm:max-w-[30vw]">
@@ -362,6 +422,26 @@ export function MonitoringWorkShiftRow({
               }}
               onSuccess={() => {
                 setEditSheetOpen(false);
+                onRefresh?.();
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit times Sheet */}
+      <Sheet open={editTimesSheetOpen} onOpenChange={setEditTimesSheetOpen}>
+        <SheetContent className="overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Editar horários</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-4">
+            <WorkShiftSlotTimesForm
+              slotId={slot.id}
+              checkInAt={slot.checkInAt}
+              checkOutAt={slot.checkOutAt}
+              onSuccess={() => {
+                setEditTimesSheetOpen(false);
                 onRefresh?.();
               }}
             />
