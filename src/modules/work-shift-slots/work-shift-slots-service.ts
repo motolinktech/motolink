@@ -7,6 +7,10 @@ import { type WorkShiftSlotStatus, workShiftSlotStatusTransitions } from "@/cons
 import { db } from "@/lib/database";
 import { convertDecimals } from "@/utils/convert-decimals";
 import { historyTracesService } from "../history-traces/history-traces-service";
+import {
+  type PaymentRequestSyncResult,
+  syncPaymentRequestFromCompletedWorkShiftSlot,
+} from "../payment-requests/payment-requests-service";
 import type {
   DiscountMutateDTO,
   WorkShiftSlotListQueryDTO,
@@ -15,6 +19,20 @@ import type {
 } from "./work-shift-slots-types";
 
 dayjs.extend(utc);
+
+function logPaymentRequestSyncHistory(sync: PaymentRequestSyncResult | null, userId: string) {
+  if (!sync || sync.action === "UNCHANGED") return;
+  historyTracesService()
+    .create({
+      userId,
+      action: sync.action,
+      entityType: historyTraceEntityConst.PAYMENT_REQUEST,
+      entityId: sync.paymentRequest.id,
+      oldObject: sync.previousPaymentRequest,
+      newObject: sync.paymentRequest,
+    })
+    .catch(() => {});
+}
 
 function calculateTotalValueToPay(body: WorkShiftSlotMutateDTO): number {
   const { paymentForm, additionalTax, rainTax } = body;
@@ -29,6 +47,17 @@ function calculateTotalValueToPay(body: WorkShiftSlotMutateDTO): number {
   }
 
   return body.deliverymanAmountDay + body.deliverymanAmountNight + additionalTax + rainTax;
+}
+
+function validateAssignedDeliverymanForStatus(status: string, deliverymanId?: string | null) {
+  if (status !== "OPEN" && !deliverymanId) {
+    return {
+      reason: "É necessário atribuir um entregador antes de alterar o status do turno",
+      statusCode: 400,
+    };
+  }
+
+  return null;
 }
 
 const TERMINAL_STATUSES = ["CANCELLED", "ABSENT", "REJECTED", "UNANSWERED"];
@@ -109,6 +138,12 @@ export function workShiftSlotsService() {
             return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
           }
 
+          const nextDeliverymanId = body.deliverymanId ?? existing.deliverymanId;
+          const invalidUpdatedStatusAssignment = validateAssignedDeliverymanForStatus(body.status, nextDeliverymanId);
+          if (invalidUpdatedStatusAssignment) {
+            return errAsync(invalidUpdatedStatusAssignment);
+          }
+
           if (existing.deliverymanId) {
             const existingBan = await findClientBlock(existing.clientId, existing.deliverymanId);
             if (existingBan && isBannedAssignedSlotLocked(existing.shiftDate)) {
@@ -119,9 +154,9 @@ export function workShiftSlotsService() {
             }
           }
 
-          if (body.deliverymanId) {
+          if (nextDeliverymanId) {
             const overlaps = await findOverlappingSlots({
-              deliverymanId: body.deliverymanId,
+              deliverymanId: nextDeliverymanId,
               shiftDate: body.shiftDate,
               startTime: body.startTime,
               endTime: body.endTime,
@@ -134,10 +169,10 @@ export function workShiftSlotsService() {
               });
             }
 
-            const ban = await findClientBlock(body.clientId, body.deliverymanId);
+            const ban = await findClientBlock(body.clientId, nextDeliverymanId);
             const isKeepingCurrentBannedAssignment =
               !!ban &&
-              existing.deliverymanId === body.deliverymanId &&
+              existing.deliverymanId === nextDeliverymanId &&
               existing.clientId === body.clientId &&
               isCurrentShiftDate(existing.shiftDate);
 
@@ -146,10 +181,19 @@ export function workShiftSlotsService() {
             }
           }
 
-          const updated = await db.workShiftSlot.update({
-            where: { id },
-            data: toWorkShiftSlotUpdateData(body),
-            include,
+          const { slot: updated, paymentRequestSync } = await db.$transaction(async (tx) => {
+            const nextSlot = await tx.workShiftSlot.update({
+              where: { id },
+              data: toWorkShiftSlotUpdateData(body),
+              include,
+            });
+
+            let sync: PaymentRequestSyncResult | null = null;
+            if (nextSlot.status === "COMPLETED") {
+              sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, nextSlot.id);
+            }
+
+            return { slot: nextSlot, paymentRequestSync: sync };
           });
 
           historyTracesService()
@@ -163,7 +207,14 @@ export function workShiftSlotsService() {
             })
             .catch(() => {});
 
+          logPaymentRequestSyncHistory(paymentRequestSync, loggedUserId);
+
           return okAsync(convertDecimals(updated));
+        }
+
+        const invalidStatusAssignment = validateAssignedDeliverymanForStatus(body.status, body.deliverymanId);
+        if (invalidStatusAssignment) {
+          return errAsync(invalidStatusAssignment);
         }
 
         if (body.deliverymanId) {
@@ -186,9 +237,18 @@ export function workShiftSlotsService() {
           }
         }
 
-        const slot = await db.workShiftSlot.create({
-          data: toWorkShiftSlotCreateData(body),
-          include,
+        const { slot, paymentRequestSync } = await db.$transaction(async (tx) => {
+          const createdSlot = await tx.workShiftSlot.create({
+            data: toWorkShiftSlotCreateData(body),
+            include,
+          });
+
+          let sync: PaymentRequestSyncResult | null = null;
+          if (createdSlot.status === "COMPLETED") {
+            sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, createdSlot.id);
+          }
+
+          return { slot: createdSlot, paymentRequestSync: sync };
         });
 
         historyTracesService()
@@ -200,6 +260,8 @@ export function workShiftSlotsService() {
             newObject: slot,
           })
           .catch(() => {});
+
+        logPaymentRequestSyncHistory(paymentRequestSync, loggedUserId);
 
         return okAsync(convertDecimals(slot));
       } catch (error) {
@@ -278,7 +340,7 @@ export function workShiftSlotsService() {
       }
     },
 
-    async updateStatus(id: string, status: string, loggedUserId: string) {
+    async updateStatus(id: string, status: string, loggedUserId: string, absentReason?: string) {
       try {
         const include = {
           client: { select: { id: true, name: true } },
@@ -296,7 +358,16 @@ export function workShiftSlotsService() {
           return errAsync({ reason: "Transição de status inválida", statusCode: 400 });
         }
 
+        const invalidStatusAssignment = validateAssignedDeliverymanForStatus(status, existing.deliverymanId);
+        if (invalidStatusAssignment) {
+          return errAsync(invalidStatusAssignment);
+        }
+
         const data: Record<string, unknown> = { status };
+
+        if (status === "ABSENT") {
+          data.absentReason = absentReason;
+        }
 
         if (status === "CHECKED_IN" && !existing.checkInAt) {
           data.checkInAt = new Date();
@@ -306,7 +377,16 @@ export function workShiftSlotsService() {
           data.checkOutAt = new Date();
         }
 
-        const updated = await db.workShiftSlot.update({ where: { id }, data, include });
+        const { slot: updated, paymentRequestSync } = await db.$transaction(async (tx) => {
+          const nextSlot = await tx.workShiftSlot.update({ where: { id }, data, include });
+
+          let sync: PaymentRequestSyncResult | null = null;
+          if (status === "COMPLETED") {
+            sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, nextSlot.id);
+          }
+
+          return { slot: nextSlot, paymentRequestSync: sync };
+        });
 
         historyTracesService()
           .create({
@@ -318,6 +398,8 @@ export function workShiftSlotsService() {
             newObject: updated,
           })
           .catch(() => {});
+
+        logPaymentRequestSyncHistory(paymentRequestSync, loggedUserId);
 
         return okAsync(convertDecimals(updated));
       } catch (error) {
@@ -549,14 +631,23 @@ export function workShiftSlotsService() {
           return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
         }
 
-        const discount = await db.discount.create({
-          data: {
-            workShiftSlotId: body.workShiftSlotId,
-            amount: body.amount,
-            reason: body.reason,
-            createdById: loggedUser.id,
-            createdByName: loggedUser.name,
-          },
+        const { discount, paymentRequestSync } = await db.$transaction(async (tx) => {
+          const createdDiscount = await tx.discount.create({
+            data: {
+              workShiftSlotId: body.workShiftSlotId,
+              amount: body.amount,
+              reason: body.reason,
+              createdById: loggedUser.id,
+              createdByName: loggedUser.name,
+            },
+          });
+
+          let sync: PaymentRequestSyncResult | null = null;
+          if (slot.status === "COMPLETED") {
+            sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, body.workShiftSlotId);
+          }
+
+          return { discount: createdDiscount, paymentRequestSync: sync };
         });
 
         historyTracesService()
@@ -568,6 +659,8 @@ export function workShiftSlotsService() {
             newObject: discount,
           })
           .catch(() => {});
+
+        logPaymentRequestSyncHistory(paymentRequestSync, loggedUser.id);
 
         return okAsync(convertDecimals(discount));
       } catch (error) {
@@ -588,9 +681,20 @@ export function workShiftSlotsService() {
           return errAsync({ reason: "Desconto já está cancelado", statusCode: 400 });
         }
 
-        const updated = await db.discount.update({
-          where: { id },
-          data: { status: "CANCELLED" },
+        const slot = await db.workShiftSlot.findUnique({ where: { id: existing.workShiftSlotId } });
+
+        const { discount: updated, paymentRequestSync } = await db.$transaction(async (tx) => {
+          const nextDiscount = await tx.discount.update({
+            where: { id },
+            data: { status: "CANCELLED" },
+          });
+
+          let sync: PaymentRequestSyncResult | null = null;
+          if (slot?.status === "COMPLETED") {
+            sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, existing.workShiftSlotId);
+          }
+
+          return { discount: nextDiscount, paymentRequestSync: sync };
         });
 
         historyTracesService()
@@ -603,6 +707,8 @@ export function workShiftSlotsService() {
             newObject: updated,
           })
           .catch(() => {});
+
+        logPaymentRequestSyncHistory(paymentRequestSync, loggedUser.id);
 
         return okAsync(convertDecimals(updated));
       } catch (error) {

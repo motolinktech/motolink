@@ -238,6 +238,7 @@ model WorkShiftSlot {
   endTime                     DateTime         @db.Time(3)
   period                      String[]         @default(["daytime"])
   auditStatus                 String
+  absentReason                String?
   logs                        Json[]
   checkInAt                   DateTime?        @db.Time(3)
   checkOutAt                  DateTime?        @db.Time(3)
@@ -276,11 +277,16 @@ model WorkShiftSlot {
 
 model PaymentRequest {
   id              String        @id @default(uuid(7))
-  workShiftSlotId String
+  workShiftSlotId String        @unique
   workShiftSlot   WorkShiftSlot @relation(fields: [workShiftSlotId], references: [id], onDelete: Cascade)
   deliverymanId   String
   deliveryman     Deliveryman   @relation(fields: [deliverymanId], references: [id], onDelete: Restrict)
+  contractType    String        @default("")
   amount          Decimal       @db.Decimal(16, 2)
+  discount        Decimal       @db.Decimal(16, 2)
+  discountReason  String?
+  additionalTax   Decimal       @db.Decimal(16, 2)
+  taxReason       String?
   status          String        @default("NEW")
   logs            Json[]        @default([])
   updatedAt       DateTime      @updatedAt

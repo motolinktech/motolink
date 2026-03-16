@@ -9,6 +9,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ContractTypeOptions } from "@/constants/contract-type";
 import { cn } from "@/lib/cn";
 import { MonitoringClientCard } from "./monitoring-client-card";
 import { SearchSelect } from "./search-select";
@@ -155,6 +157,7 @@ export function MonitoringDailyContent({
   const [clients, setClients] = useState<MonitoringClient[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [contractTypeFilter, setContractTypeFilter] = useState<string>("all");
 
   const copyClientId = searchParams.get("copyClientId") ?? undefined;
   const copySourceDate = searchParams.get("copySourceDate") ?? undefined;
@@ -260,6 +263,14 @@ export function MonitoringDailyContent({
   const resolvedSelectedClientName =
     clientsFilter.options.find((option) => option.value === selectedClientId)?.label ?? selectedClientName;
 
+  const filteredClients =
+    contractTypeFilter === "all"
+      ? clients
+      : clients.map((client) => ({
+          ...client,
+          workShifts: client.workShifts.filter((ws) => ws.contractType === contractTypeFilter),
+        }));
+
   const today = dayjs();
   const isToday = selectedDate.isSame(today, "day");
   const weekday = selectedDate.format("dddd");
@@ -299,6 +310,20 @@ export function MonitoringDailyContent({
             placeholder="Filtrar por cliente..."
             emptyMessage="Nenhum cliente encontrado"
           />
+
+          <Select value={contractTypeFilter} onValueChange={setContractTypeFilter}>
+            <SelectTrigger size="sm">
+              <SelectValue placeholder="Tipo de contrato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os contratos</SelectItem>
+              {ContractTypeOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -379,7 +404,7 @@ export function MonitoringDailyContent({
               </Button>
             </div>
           )}
-          {clients.map((client) => {
+          {filteredClients.map((client) => {
             const isCopyTarget = copyClientId === client.id && copySourceDate !== dateStr;
             return (
               <MonitoringClientCard

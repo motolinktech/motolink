@@ -85,6 +85,7 @@ interface WorkShiftSlot {
   deliverymanPerDeliveryNight?: number | string;
   additionalTax?: number | string;
   additionalTaxReason?: string;
+  absentReason?: string | null;
   isWeekendRate?: boolean;
   isDeliverymanBannedForClient?: boolean;
 }
@@ -115,6 +116,7 @@ export function MonitoringWorkShiftRow({
   const [banConfirmOpen, setBanConfirmOpen] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [absentDialogOpen, setAbsentDialogOpen] = useState(false);
+  const [absentReason, setAbsentReason] = useState("");
   const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
@@ -139,11 +141,12 @@ export function MonitoringWorkShiftRow({
   };
 
   const handleMarkAbsent = async () => {
-    const result = await executeAsync({ id: slot.id, status: "ABSENT" });
+    const result = await executeAsync({ id: slot.id, status: "ABSENT", absentReason: absentReason.trim() });
     if (result?.data?.error) {
       toast.error(result.data.error);
     } else {
       toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.ABSENT}`);
+      setAbsentReason("");
       onRefresh?.();
     }
   };
@@ -496,7 +499,13 @@ export function MonitoringWorkShiftRow({
       </AlertDialog>
 
       {/* Absent confirmation dialog */}
-      <AlertDialog open={absentDialogOpen} onOpenChange={setAbsentDialogOpen}>
+      <AlertDialog
+        open={absentDialogOpen}
+        onOpenChange={(open) => {
+          setAbsentDialogOpen(open);
+          if (!open) setAbsentReason("");
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Marcar ausência</AlertDialogTitle>
@@ -504,9 +513,24 @@ export function MonitoringWorkShiftRow({
               Tem certeza que deseja marcar este entregador como ausente? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="absent-reason" className="text-sm font-medium">
+              Motivo da ausência
+            </label>
+            <Textarea
+              id="absent-reason"
+              placeholder="Descreva o motivo da ausência..."
+              value={absentReason}
+              onChange={(e) => setAbsentReason(e.target.value)}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleMarkAbsent}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleMarkAbsent}
+              disabled={!absentReason.trim() || isExecuting}
+            >
               Confirmar ausência
             </AlertDialogAction>
           </AlertDialogFooter>

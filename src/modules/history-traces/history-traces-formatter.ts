@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import { PAYMENT_TYPE_LABELS } from "@/constants/commercial-conditions";
 import { ContractTypeOptions } from "@/constants/contract-type";
+import { PAYMENT_REQUEST_STATUS_LABELS } from "@/constants/payment-request-status";
 import { PLANNING_PERIOD_LABELS } from "@/constants/planning-period";
 import { WORK_SHIFT_SLOT_STATUS_LABELS } from "@/constants/work-shift-slot-status";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
@@ -32,6 +33,10 @@ const FIELD_LABELS: Record<string, string> = {
   checkInAt: "Check-in",
   checkOutAt: "Check-out",
   paymentForm: "Forma de pagamento",
+  amount: "Valor",
+  discount: "Desconto",
+  discountReason: "Motivo do desconto",
+  taxReason: "Motivo da taxa",
   additionalTax: "Taxa adicional",
   additionalTaxReason: "Motivo taxa adicional",
   totalValueToPay: "Total a pagar",
@@ -46,9 +51,12 @@ const FIELD_LABELS: Record<string, string> = {
   deliverymanPerDeliveryDay: "Valor por entrega diurno",
   deliverymanPerDeliveryNight: "Valor por entrega noturno",
   isWeekendRate: "Taxa fim de semana",
+  absentReason: "Motivo da ausência",
 };
 
 const MONEY_FIELDS = new Set([
+  "amount",
+  "discount",
   "additionalTax",
   "totalValueToPay",
   "deliverymanAmountDay",
@@ -63,7 +71,7 @@ const MONEY_FIELDS = new Set([
 const TIME_FIELDS = new Set(["startTime", "endTime", "checkInAt", "checkOutAt"]);
 
 const ENUM_FORMATTERS: Record<string, Record<string, string>> = {
-  status: WORK_SHIFT_SLOT_STATUS_LABELS,
+  status: { ...WORK_SHIFT_SLOT_STATUS_LABELS, ...PAYMENT_REQUEST_STATUS_LABELS },
   period: PLANNING_PERIOD_LABELS,
   paymentForm: PAYMENT_TYPE_LABELS,
 };

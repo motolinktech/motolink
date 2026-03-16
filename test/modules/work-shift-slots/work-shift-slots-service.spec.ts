@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 process.env.AUTH_SECRET ??= "test-secret";
 
+import { historyTraceActionConst, historyTraceEntityConst } from "../../../src/constants/history-trace";
 import { db } from "../../../src/lib/database";
 import { workShiftSlotsService } from "../../../src/modules/work-shift-slots/work-shift-slots-service";
 import type { WorkShiftSlotMutateDTO } from "../../../src/modules/work-shift-slots/work-shift-slots-types";
@@ -115,6 +116,34 @@ async function createTestWorkShiftSlot(
       auditStatus: "PENDING",
     },
   });
+}
+
+async function createActorUser() {
+  return db.user.create({
+    data: {
+      id: LOGGED_USER_ID,
+      name: "Actor User",
+      email: "actor@example.com",
+      status: "ACTIVE",
+    },
+  });
+}
+
+async function findHistoryTraceOrThrow(where: { entityId: string; action: string; entityType: string }) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const trace = await db.historyTrace.findFirst({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (trace) {
+      return trace;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  throw new Error(`History trace not found for ${where.entityType}:${where.entityId}:${where.action}`);
 }
 
 // --- Tests ---------------------------------------------------------------
@@ -419,17 +448,104 @@ describe("Work Shift Slots Service", () => {
     });
 
     it("should update the work shift slot when id is provided", async () => {
-      const client = await createTestClient();
-      const created = await createTestWorkShiftSlot({ clientId: client.id });
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const created = await createTestWorkShiftSlot({ clientId: client.id, deliverymanId: deliveryman.id });
 
       const result = await service.upsert(
         created.id,
-        { ...BASE_BODY, clientId: client.id, status: "FILLED" },
+        { ...BASE_BODY, clientId: client.id, deliverymanId: deliveryman.id, status: "FILLED" },
         LOGGED_USER_ID,
       );
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().status).toBe("FILLED");
+    });
+
+    it("should block saving a non-open slot without deliveryman", async () => {
+      const client = await createTestClient();
+
+      const result = await service.upsert(
+        undefined,
+        { ...BASE_BODY, clientId: client.id, status: "INVITED" },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().statusCode).toBe(400);
+      expect(result._unsafeUnwrapErr().reason).toBe(
+        "É necessário atribuir um entregador antes de alterar o status do turno",
+      );
+    });
+
+    it("should sync the payment request when a completed slot is edited", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      await createActorUser();
+
+      const created = await createTestWorkShiftSlot({
+        clientId: client.id,
+        deliverymanId: deliveryman.id,
+        status: "COMPLETED",
+      });
+
+      const initialResult = await service.upsert(
+        created.id,
+        {
+          ...BASE_BODY,
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "COMPLETED",
+          deliverymanAmountDay: 100,
+          additionalTax: 15,
+          rainTax: 5,
+        },
+        LOGGED_USER_ID,
+      );
+
+      expect(initialResult.isOk()).toBe(true);
+
+      const existingPaymentRequest = await db.paymentRequest.findFirst({
+        where: { workShiftSlotId: created.id },
+      });
+
+      expect(existingPaymentRequest).not.toBeNull();
+      expect(Number(existingPaymentRequest?.amount)).toBe(120);
+
+      const updatedResult = await service.upsert(
+        created.id,
+        {
+          ...BASE_BODY,
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "COMPLETED",
+          deliverymanAmountDay: 140,
+          additionalTax: 20,
+          rainTax: 10,
+        },
+        LOGGED_USER_ID,
+      );
+
+      expect(updatedResult.isOk()).toBe(true);
+
+      const refreshedPaymentRequest = await db.paymentRequest.findFirst({
+        where: { workShiftSlotId: created.id },
+      });
+
+      expect(refreshedPaymentRequest).not.toBeNull();
+      expect(Number(refreshedPaymentRequest?.amount)).toBe(170);
+
+      const trace = await findHistoryTraceOrThrow({
+        entityType: historyTraceEntityConst.PAYMENT_REQUEST,
+        entityId: existingPaymentRequest?.id ?? "",
+        action: historyTraceActionConst.UPDATED,
+      });
+
+      expect(trace.changes).toMatchObject({
+        amount: { old: "120", new: "170" },
+      });
     });
 
     it("should allow editing a current-day slot that keeps a banned assigned deliveryman", async () => {
@@ -496,7 +612,14 @@ describe("Work Shift Slots Service", () => {
 
   describe(".updateStatus", () => {
     it("should update status with valid transition (OPEN → INVITED)", async () => {
-      const created = await createTestWorkShiftSlot({ status: "OPEN" });
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      const created = await createTestWorkShiftSlot({
+        clientId: client.id,
+        deliverymanId: deliveryman.id,
+        status: "OPEN",
+      });
 
       const result = await service.updateStatus(created.id, "INVITED", LOGGED_USER_ID);
 
@@ -528,6 +651,78 @@ describe("Work Shift Slots Service", () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr().statusCode).toBe(400);
+    });
+
+    it("should block leaving OPEN without a deliveryman", async () => {
+      const created = await createTestWorkShiftSlot({ status: "OPEN" });
+
+      const result = await service.updateStatus(created.id, "INVITED", LOGGED_USER_ID);
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().statusCode).toBe(400);
+      expect(result._unsafeUnwrapErr().reason).toBe(
+        "É necessário atribuir um entregador antes de alterar o status do turno",
+      );
+    });
+
+    it("should create a payment request when a slot is completed", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      await createActorUser();
+
+      const created = await createTestWorkShiftSlot({
+        clientId: client.id,
+        deliverymanId: deliveryman.id,
+        status: "PENDING_COMPLETION",
+      });
+
+      await db.discount.create({
+        data: {
+          workShiftSlotId: created.id,
+          amount: 25,
+          reason: "Operational discount",
+          createdById: LOGGED_USER_ID,
+          createdByName: "Actor User",
+        },
+      });
+
+      await db.workShiftSlot.update({
+        where: { id: created.id },
+        data: {
+          deliverymanAmountDay: 150,
+          additionalTax: 20,
+          rainTax: 10,
+        },
+      });
+
+      const result = await service.updateStatus(created.id, "COMPLETED", LOGGED_USER_ID);
+
+      expect(result.isOk()).toBe(true);
+
+      const paymentRequest = await db.paymentRequest.findFirst({
+        where: { workShiftSlotId: created.id },
+      });
+
+      expect(paymentRequest).not.toBeNull();
+      expect(paymentRequest).toMatchObject({
+        deliverymanId: deliveryman.id,
+        status: "NEW",
+      });
+      expect(Number(paymentRequest?.amount)).toBe(155);
+      expect(Number(paymentRequest?.discount)).toBe(0);
+      expect(Number(paymentRequest?.additionalTax)).toBe(0);
+
+      const trace = await findHistoryTraceOrThrow({
+        entityType: historyTraceEntityConst.PAYMENT_REQUEST,
+        entityId: paymentRequest?.id ?? "",
+        action: historyTraceActionConst.CREATED,
+      });
+
+      expect(trace.changes).toMatchObject({
+        amount: { old: null, new: "155" },
+        status: { old: null, new: "NEW" },
+      });
     });
   });
 
@@ -589,6 +784,65 @@ describe("Work Shift Slots Service", () => {
       expect(result._unsafeUnwrapErr().reason).toBe(
         "Este turno não pode ser editado porque o entregador está banido para este cliente",
       );
+    });
+  });
+
+  describe(".createDiscount", () => {
+    it("should recalculate the payment request amount for completed slots", async () => {
+      const branch = await createTestBranch();
+      const client = await createTestClient({ branchId: branch.id });
+      const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+      await createActorUser();
+
+      const slot = await createTestWorkShiftSlot({
+        clientId: client.id,
+        deliverymanId: deliveryman.id,
+        status: "COMPLETED",
+      });
+
+      await service.upsert(
+        slot.id,
+        {
+          ...BASE_BODY,
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "COMPLETED",
+          deliverymanAmountDay: 180,
+          additionalTax: 20,
+          rainTax: 0,
+        },
+        LOGGED_USER_ID,
+      );
+
+      const beforeDiscount = await db.paymentRequest.findFirst({
+        where: { workShiftSlotId: slot.id },
+      });
+
+      expect(Number(beforeDiscount?.amount)).toBe(200);
+
+      const result = await service.createDiscount(
+        { workShiftSlotId: slot.id, amount: 30, reason: "Operational adjustment" },
+        { id: LOGGED_USER_ID, name: "Actor User" },
+      );
+
+      expect(result.isOk()).toBe(true);
+
+      const paymentRequest = await db.paymentRequest.findFirst({
+        where: { workShiftSlotId: slot.id },
+      });
+
+      expect(paymentRequest).not.toBeNull();
+      expect(Number(paymentRequest?.amount)).toBe(170);
+
+      const trace = await findHistoryTraceOrThrow({
+        entityType: historyTraceEntityConst.PAYMENT_REQUEST,
+        entityId: paymentRequest?.id ?? "",
+        action: historyTraceActionConst.UPDATED,
+      });
+
+      expect(trace.changes).toMatchObject({
+        amount: { old: "200", new: "170" },
+      });
     });
   });
 

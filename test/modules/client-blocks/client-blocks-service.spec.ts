@@ -57,17 +57,15 @@ async function createTestDeliveryman(overrides: { name?: string; branchId?: stri
   });
 }
 
-async function createTestWorkShiftSlot(
-  overrides: {
-    clientId: string;
-    deliverymanId?: string;
-    shiftDate: Date;
-    status?: string;
-    inviteToken?: string | null;
-    inviteSentAt?: Date | null;
-    inviteExpiresAt?: Date | null;
-  },
-) {
+async function createTestWorkShiftSlot(overrides: {
+  clientId: string;
+  deliverymanId?: string;
+  shiftDate: Date;
+  status?: string;
+  inviteToken?: string | null;
+  inviteSentAt?: Date | null;
+  inviteExpiresAt?: Date | null;
+}) {
   return db.workShiftSlot.create({
     data: {
       clientId: overrides.clientId,

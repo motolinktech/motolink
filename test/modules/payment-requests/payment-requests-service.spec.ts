@@ -77,7 +77,14 @@ async function createTestWorkShiftSlot(overrides: { clientId?: string; deliverym
 }
 
 async function createTestPaymentRequest(
-  overrides: { workShiftSlotId?: string; deliverymanId?: string; amount?: number; status?: string } = {},
+  overrides: {
+    workShiftSlotId?: string;
+    deliverymanId?: string;
+    amount?: number;
+    discount?: number;
+    additionalTax?: number;
+    status?: string;
+  } = {},
 ) {
   const branch = await createTestBranch();
   const deliverymanId = overrides.deliverymanId ?? (await createTestDeliveryman({ branchId: branch.id })).id;
@@ -87,6 +94,8 @@ async function createTestPaymentRequest(
       workShiftSlotId,
       deliverymanId,
       amount: overrides.amount ?? 100,
+      discount: overrides.discount ?? 0,
+      additionalTax: overrides.additionalTax ?? 0,
       status: overrides.status ?? "NEW",
     },
   });
@@ -100,6 +109,8 @@ async function createBaseBody(): Promise<PaymentRequestMutateDTO> {
     workShiftSlotId: slot.id,
     deliverymanId: deliveryman.id,
     amount: 150,
+    discount: 0,
+    additionalTax: 0,
     status: "NEW",
   };
 }
@@ -153,6 +164,8 @@ describe("Payment Requests Service", () => {
       expect(paymentRequest.status).toBe("NEW");
       expect(paymentRequest.workShiftSlotId).toBe(body.workShiftSlotId);
       expect(paymentRequest.deliverymanId).toBe(body.deliverymanId);
+      expect(paymentRequest.discount).toBe(0);
+      expect(paymentRequest.additionalTax).toBe(0);
     });
 
     it("should create a history trace when a payment request is created", async () => {
@@ -224,6 +237,24 @@ describe("Payment Requests Service", () => {
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap().status).toBe("APPROVED");
+    });
+
+    it("should update finance adjustments successfully", async () => {
+      const existing = await createTestPaymentRequest({ discount: 0, additionalTax: 0 });
+
+      const result = await service.update(
+        existing.id,
+        { discount: 12, discountReason: "Acerto", additionalTax: 8, taxReason: "Bônus" },
+        LOGGED_USER_ID,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toMatchObject({
+        discount: 12,
+        discountReason: "Acerto",
+        additionalTax: 8,
+        taxReason: "Bônus",
+      });
     });
 
     it("should return 404 when not found", async () => {

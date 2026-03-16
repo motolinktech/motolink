@@ -104,6 +104,7 @@ interface WorkShiftSlot {
   deliverymanPerDeliveryNight?: number | string;
   additionalTax?: number | string;
   additionalTaxReason?: string;
+  absentReason?: string | null;
   isWeekendRate?: boolean;
   isDeliverymanBannedForClient?: boolean;
 }

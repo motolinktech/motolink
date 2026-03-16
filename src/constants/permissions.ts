@@ -28,6 +28,8 @@ export const ROLE_PERMISSIONS = [
       "deliverymen.create",
       "deliverymen.edit",
       "deliverymen.delete",
+      "financial.view",
+      "financial.edit",
     ],
   },
   { role: "USER", label: "Usuário", permissions: ["operational.view", "operational.create", "operational.edit"] },
@@ -41,6 +43,7 @@ export const PERMISSION_MODULES = [
   { key: "regions", label: "Regioes" },
   { key: "deliverymen", label: "Entregadores" },
   { key: "operational", label: "Operacional" },
+  { key: "financial", label: "Financeiro" },
 ] as const;
 
 export const PERMISSION_ACTIONS = [

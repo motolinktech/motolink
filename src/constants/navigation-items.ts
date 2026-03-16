@@ -1,4 +1,4 @@
-import { CirclePlus, Home, Target } from "lucide-react";
+import { CirclePlus, DollarSignIcon, Home, Target } from "lucide-react";
 
 export const navigationItems = [
   {
@@ -25,6 +25,22 @@ export const navigationItems = [
         title: "Monitoramento Semanal",
         url: "/operacional/monitoramento/semanal",
         requiredPermission: "operational.view",
+      },
+    ],
+  },
+  {
+    title: "Financeiro",
+    icon: DollarSignIcon,
+    items: [
+      {
+        title: "Freelancer",
+        url: "/financeiro/freelancer",
+        requiredPermission: "financial.view",
+      },
+      {
+        title: "Colaborador Independente",
+        url: "/financeiro/colaborador-independente",
+        requiredPermission: "financial.view",
       },
     ],
   },

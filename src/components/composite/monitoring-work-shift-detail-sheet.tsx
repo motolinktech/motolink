@@ -79,6 +79,7 @@ export interface DetailSheetSlot {
   additionalTax?: number | string;
   additionalTaxReason?: string;
   isWeekendRate?: boolean;
+  absentReason?: string | null;
   isDeliverymanBannedForClient?: boolean;
   discounts?: {
     id: string;
@@ -147,6 +148,7 @@ export function MonitoringWorkShiftDetailSheet({
   const [banConfirmOpen, setBanConfirmOpen] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [absentDialogOpen, setAbsentDialogOpen] = useState(false);
+  const [absentReason, setAbsentReason] = useState("");
   const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [traces, setTraces] = useState<HistoryTrace[]>([]);
@@ -200,11 +202,12 @@ export function MonitoringWorkShiftDetailSheet({
   };
 
   const handleMarkAbsent = async () => {
-    const result = await executeAsync({ id: slot.id, status: "ABSENT" });
+    const result = await executeAsync({ id: slot.id, status: "ABSENT", absentReason: absentReason.trim() });
     if (result?.data?.error) {
       toast.error(result.data.error);
     } else {
       toast.success(`Status atualizado para ${WORK_SHIFT_SLOT_STATUS_LABELS.ABSENT}`);
+      setAbsentReason("");
       onRefresh?.();
     }
   };
@@ -406,6 +409,13 @@ export function MonitoringWorkShiftDetailSheet({
                 </p>
               </div>
             </div>
+
+            {slot.status === "ABSENT" && slot.absentReason && (
+              <div>
+                <p className="text-xs text-muted-foreground">Motivo da ausência</p>
+                <p className="text-sm font-medium">{slot.absentReason}</p>
+              </div>
+            )}
 
             {/* Payment breakdown */}
             {hasPaymentSection && (
@@ -800,7 +810,13 @@ export function MonitoringWorkShiftDetailSheet({
       </Sheet>
 
       {/* Absent confirmation dialog */}
-      <AlertDialog open={absentDialogOpen} onOpenChange={setAbsentDialogOpen}>
+      <AlertDialog
+        open={absentDialogOpen}
+        onOpenChange={(next) => {
+          setAbsentDialogOpen(next);
+          if (!next) setAbsentReason("");
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Marcar ausência</AlertDialogTitle>
@@ -808,9 +824,23 @@ export function MonitoringWorkShiftDetailSheet({
               Tem certeza que deseja marcar este entregador como ausente? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1.5 px-1">
+            <p className="text-sm font-medium">Motivo da ausência *</p>
+            <Textarea
+              value={absentReason}
+              onChange={(e) => setAbsentReason(e.target.value)}
+              placeholder="Descreva o motivo da ausência"
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleMarkAbsent}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleMarkAbsent}
+              disabled={!absentReason.trim() || isExecuting}
+            >
+              {isExecuting ? <Spinner className="mr-1 size-3" /> : null}
               Confirmar ausência
             </AlertDialogAction>
           </AlertDialogFooter>
