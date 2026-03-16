@@ -1,5 +1,5 @@
+import { errAsync, okAsync } from "neverthrow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { okAsync, errAsync } from "neverthrow";
 
 const mockGet = vi.fn();
 vi.mock("next/headers", () => ({
