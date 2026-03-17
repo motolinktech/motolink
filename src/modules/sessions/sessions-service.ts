@@ -22,10 +22,17 @@ export function sessionsService() {
           });
         }
 
-        const isValidPassword = await hash().compare(password, user.password);
+        const { valid, needsRehash } = await hash().compare(password, user.password);
 
-        if (!isValidPassword) {
+        if (!valid) {
           return errAsync({ reason: "Credenciais inválidas", statusCode: 401 });
+        }
+
+        if (needsRehash) {
+          hash()
+            .create(password)
+            .then((newHash) => db.user.update({ where: { id: user.id }, data: { password: newHash } }))
+            .catch((err) => console.error("Error rehashing password:", err));
         }
 
         const token = crypto.randomUUID();

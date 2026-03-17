@@ -44,7 +44,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ContractTypeOptions } from "@/constants/contract-type";
-import { type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
+import { PLANNING_PERIOD_LABELS, type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
 import {
   WORK_SHIFT_SLOT_STATUS_COLORS,
   WORK_SHIFT_SLOT_STATUS_ICONS,
@@ -91,21 +91,12 @@ interface WorkShiftSlot {
 
 interface MonitoringWorkShiftRowProps {
   slot: WorkShiftSlot;
-  periodLabel: string;
-  period: PlanningPeriod;
   client: FormClient;
   shiftDate: string;
   onRefresh?: () => void;
 }
 
-export function MonitoringWorkShiftRow({
-  slot,
-  periodLabel,
-  period,
-  client,
-  shiftDate,
-  onRefresh,
-}: MonitoringWorkShiftRowProps) {
+export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: MonitoringWorkShiftRowProps) {
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editTimesSheetOpen, setEditTimesSheetOpen] = useState(false);
   const [addDiscountSheetOpen, setAddDiscountSheetOpen] = useState(false);
@@ -248,12 +239,15 @@ export function MonitoringWorkShiftRow({
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                {period === planningPeriodConst.DAYTIME ? (
+                {slot.period.some((p) => p.toUpperCase() === planningPeriodConst.DAYTIME) && (
                   <SunIcon className="size-3" />
-                ) : (
+                )}
+                {slot.period.some((p) => p.toUpperCase() === planningPeriodConst.NIGHTTIME) && (
                   <MoonIcon className="size-3" />
                 )}
-                {periodLabel}
+                {slot.period.length > 1
+                  ? "Diurno + Noturno"
+                  : (PLANNING_PERIOD_LABELS[slot.period[0]?.toUpperCase() as PlanningPeriod] ?? slot.period[0])}
               </span>
               {slot.totalValueToPay != null && Number(slot.totalValueToPay) > 0 && (
                 <span>{formatMoneyDisplay(slot.totalValueToPay)}</span>

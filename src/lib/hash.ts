@@ -1,4 +1,5 @@
 import argon2 from "argon2";
+import { createHmac } from "crypto";
 
 let cachedPepper: Promise<Buffer> | null = null;
 
@@ -19,9 +20,23 @@ export function hash() {
       const pepper = await _getPepper();
       return argon2.hash(value, { secret: pepper });
     },
-    async compare(value: string, hashedValue: string): Promise<boolean> {
+    async compare(value: string, hashedValue: string): Promise<{ valid: boolean; needsRehash: boolean }> {
       const pepper = await _getPepper();
-      return argon2.verify(hashedValue, value, { secret: pepper });
+
+      try {
+        if (await argon2.verify(hashedValue, value, { secret: pepper })) {
+          return { valid: true, needsRehash: false };
+        }
+      } catch {}
+
+      try {
+        const textWithPepper = createHmac("sha256", "secret").update(value).digest("hex");
+        if (await argon2.verify(hashedValue, textWithPepper)) {
+          return { valid: true, needsRehash: true };
+        }
+      } catch {}
+
+      return { valid: false, needsRehash: false };
     },
   };
 }

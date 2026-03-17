@@ -273,6 +273,8 @@ export function MonitoringClientCard({
     })
     .filter((s) => s.plannedCount > 0 || s.filledCount > 0);
 
+  const renderedSlotIds = new Set<string>();
+
   const renderPeriodRows = (period: PlanningPeriod) => {
     const planning = plannings.find((p) => p.period === period);
     const plannedCount = planning?.plannedCount ?? 0;
@@ -287,12 +289,12 @@ export function MonitoringClientCard({
     const rows: React.ReactNode[] = [];
 
     for (const slot of sortedSlots) {
+      if (renderedSlotIds.has(slot.id)) continue;
+      renderedSlotIds.add(slot.id);
       rows.push(
         <MonitoringWorkShiftRow
           key={slot.id}
           slot={slot}
-          periodLabel={periodLabel}
-          period={period}
           client={client}
           shiftDate={shiftDate}
           onRefresh={onRefresh}
