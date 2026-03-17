@@ -1,3 +1,4 @@
+import { BanIcon, CheckIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { AccessDenied } from "@/components/composite/access-denied";
@@ -8,7 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Text } from "@/components/ui/text";
+import { buildPermissionKey, PERMISSION_ACTIONS, PERMISSION_MODULES } from "@/constants/permissions";
 import { branchesService } from "@/modules/branches/branches-service";
 import { usersService } from "@/modules/users/users-service";
 import { checkPagePermission } from "@/utils/check-page-permission";
@@ -123,17 +126,41 @@ export default async function ColaboradorPage({ params }: ColaboradorPageProps) 
         <div className="space-y-4">
           <div className="space-y-1">
             <Text variant="muted">Permissões</Text>
-            {user.permissions.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {user.permissions.map((permission) => (
-                  <Badge key={permission} variant="secondary">
-                    {permission}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <Text>Nenhuma permissão atribuída</Text>
-            )}
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Módulo</TableHead>
+                    {PERMISSION_ACTIONS.map((action) => (
+                      <TableHead key={action.key} className="text-center">
+                        {action.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {PERMISSION_MODULES.map((module) => (
+                    <TableRow key={module.key}>
+                      <TableCell className="font-medium">{module.label}</TableCell>
+                      {PERMISSION_ACTIONS.map((action) => {
+                        const key = buildPermissionKey(module.key, action.key);
+                        const hasPermission = user.role === "ADMIN" || user.permissions.includes(key);
+
+                        return (
+                          <TableCell key={action.key} className="text-center">
+                            {hasPermission ? (
+                              <CheckIcon className="mx-auto size-4 text-green-600" />
+                            ) : (
+                              <BanIcon className="mx-auto size-4 text-red-600" />
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
           <div className="space-y-1">
             <Text variant="muted">Filiais</Text>

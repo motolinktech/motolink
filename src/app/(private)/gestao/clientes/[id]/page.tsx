@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { AccessDenied } from "@/components/composite/access-denied";
 import { ContentHeader } from "@/components/composite/content-header";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Text } from "@/components/ui/text";
 import { BAGS_STATUS_OPTIONS } from "@/constants/bags-status";
 import { PAYMENT_TYPES, PERIOD_TYPES } from "@/constants/commercial-conditions";
@@ -97,171 +99,250 @@ export default async function ClientePage({ params }: ClientePageProps) {
         </div>
       </section>
 
-      <Separator />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>Dados do Cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <InfoItem label="Nome">{client.name}</InfoItem>
+            <InfoItem label="CNPJ">{applyCnpjMask(client.cnpj)}</InfoItem>
+            <InfoItem label="Nome do Contato">{client.contactName}</InfoItem>
+            <InfoItem label="Telefone">{client.contactPhone ? applyPhoneMask(client.contactPhone) : "—"}</InfoItem>
+            {client.observations && (
+              <div className="sm:col-span-2">
+                <InfoItem label="Observações">{client.observations}</InfoItem>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      <section className="space-y-4">
-        <Heading variant="h3">Dados do Cliente</Heading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoItem label="Nome">{client.name}</InfoItem>
-          <InfoItem label="CNPJ">{applyCnpjMask(client.cnpj)}</InfoItem>
-          <InfoItem label="Nome do Contato">{client.contactName}</InfoItem>
-          <InfoItem label="Telefone">{client.contactPhone ? applyPhoneMask(client.contactPhone) : "—"}</InfoItem>
-        </div>
-        {client.observations && <InfoItem label="Observações">{client.observations}</InfoItem>}
-      </section>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>Endereço</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <InfoItem label="CEP">{applyCepMask(client.cep)}</InfoItem>
+            <InfoItem label="Rua">{client.street}</InfoItem>
+            <InfoItem label="Número">{client.number}</InfoItem>
+            <InfoItem label="Complemento">{client.complement || "—"}</InfoItem>
+            <InfoItem label="Bairro">{client.neighborhood}</InfoItem>
+            <InfoItem label="Cidade">
+              {client.city} - {client.uf}
+            </InfoItem>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Separator />
-
-      <section className="space-y-4">
-        <Heading variant="h3">Endereço</Heading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoItem label="CEP">{applyCepMask(client.cep)}</InfoItem>
-          <InfoItem label="Rua">{client.street}</InfoItem>
-          <InfoItem label="Número">{client.number}</InfoItem>
-          <InfoItem label="Complemento">{client.complement || "—"}</InfoItem>
-          <InfoItem label="Bairro">{client.neighborhood}</InfoItem>
-          <InfoItem label="Cidade">{client.city}</InfoItem>
-          <InfoItem label="UF">{client.uf}</InfoItem>
-        </div>
-      </section>
-
-      <Separator />
-
-      <section className="space-y-4">
-        <Heading variant="h3">Classificação</Heading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle>Classificação</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoItem label="Região">{regionMap.get(client.regionId ?? "") ?? "—"}</InfoItem>
           <InfoItem label="Grupo">{groupMap.get(client.groupId ?? "") ?? "—"}</InfoItem>
           {comm && <InfoItem label="Status dos Bags">{getBagsStatusLabel(comm.bagsStatus)}</InfoItem>}
           {comm && comm.bagsStatus === "COMPANY" && <InfoItem label="Qt. de Bags">{comm.bagsAllocated}</InfoItem>}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <Separator />
 
-      <section className="space-y-4">
+      <section className="space-y-6">
         <Heading variant="h3">Condições Comerciais</Heading>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoItem label="Fornece refeição?">{client.provideMeal ? "Sim" : "Não"}</InfoItem>
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <Card size="sm">
+            <CardContent className="pt-0 text-center">
+              <Text variant="muted" className="mb-1">
+                Refeição
+              </Text>
+              <Text className="font-medium">{client.provideMeal ? "Sim" : "Não"}</Text>
+            </CardContent>
+          </Card>
           {comm && (
             <>
-              <InfoItem label="Taxa de chuva">{comm.rainTax > 0 ? formatCurrency(comm.rainTax) : "Não"}</InfoItem>
-              <InfoItem label="Área de entrega">{comm.deliveryAreaKm} km</InfoItem>
-              <InfoItem label="Coberta pela Motolink?">{comm.isMotolinkCovered ? "Sim" : "Não"}</InfoItem>
+              <Card size="sm">
+                <CardContent className="pt-0 text-center">
+                  <Text variant="muted" className="mb-1">
+                    Taxa de chuva
+                  </Text>
+                  <Text className="font-medium">{comm.rainTax > 0 ? formatCurrency(comm.rainTax) : "Não cobrada"}</Text>
+                </CardContent>
+              </Card>
+              <Card size="sm">
+                <CardContent className="pt-0 text-center">
+                  <Text variant="muted" className="mb-1">
+                    Área de entrega
+                  </Text>
+                  <Text className="font-medium">{comm.deliveryAreaKm} km</Text>
+                </CardContent>
+              </Card>
+              <Card size="sm">
+                <CardContent className="pt-0 text-center">
+                  <Text variant="muted" className="mb-1">
+                    Coberta pela Motolink
+                  </Text>
+                  <Text className="font-medium">{comm.isMotolinkCovered ? "Sim" : "Não"}</Text>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>
 
         {comm && comm.paymentForm.length > 0 && (
-          <div className="space-y-2">
-            <Text variant="muted">Formas de pagamento</Text>
-            <div className="flex flex-wrap gap-1">
-              {comm.paymentForm.map((p) => (
-                <Badge key={p} variant="secondary">
-                  {getPaymentLabel(p)}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {comm && comm.paymentForm.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoItem label="Cliente - Por Entrega">{formatCurrency(comm.clientPerDelivery)}</InfoItem>
-            <InfoItem label="Cliente - Km Adicional">{formatCurrency(comm.clientAdditionalKm)}</InfoItem>
-            <InfoItem label="Entregador - Por Entrega">{formatCurrency(comm.deliverymanPerDelivery)}</InfoItem>
-            <InfoItem label="Entregador - Km Adicional">{formatCurrency(comm.deliverymanAdditionalKm)}</InfoItem>
-          </div>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Valores por Entrega</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Text variant="muted">Formas de pagamento:</Text>
+                {comm.paymentForm.map((p) => (
+                  <Badge key={p} variant="secondary">
+                    {getPaymentLabel(p)}
+                  </Badge>
+                ))}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead />
+                    <TableHead>Por Entrega</TableHead>
+                    <TableHead>Km Adicional</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">Cliente</TableCell>
+                    <TableCell>{formatCurrency(comm.clientPerDelivery)}</TableCell>
+                    <TableCell>{formatCurrency(comm.clientAdditionalKm)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Entregador</TableCell>
+                    <TableCell>{formatCurrency(comm.deliverymanPerDelivery)}</TableCell>
+                    <TableCell>{formatCurrency(comm.deliverymanAdditionalKm)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
 
         {comm && comm.dailyPeriods.length > 0 && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Text variant="muted">Períodos - Diária</Text>
-              <div className="flex flex-wrap gap-1">
-                {comm.dailyPeriods.map((p) => (
-                  <Badge key={p} variant="outline">
-                    {getPeriodLabel(p)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {comm.dailyPeriods.includes("WEEK_DAY") && (
-                <>
-                  <InfoItem label="Cliente - Semanal (Dia)">{formatCurrency(comm.clientDailyDay)}</InfoItem>
-                  <InfoItem label="Entregador - Semanal (Dia)">{formatCurrency(comm.deliverymanDailyDay)}</InfoItem>
-                </>
-              )}
-              {comm.dailyPeriods.includes("WEEK_NIGHT") && (
-                <>
-                  <InfoItem label="Cliente - Semanal (Noite)">{formatCurrency(comm.clientDailyNight)}</InfoItem>
-                  <InfoItem label="Entregador - Semanal (Noite)">{formatCurrency(comm.deliverymanDailyNight)}</InfoItem>
-                </>
-              )}
-              {comm.dailyPeriods.includes("WEEKEND_DAY") && (
-                <>
-                  <InfoItem label="Cliente - Fim de Semana (Dia)">{formatCurrency(comm.clientDailyDayWknd)}</InfoItem>
-                  <InfoItem label="Entregador - Fim de Semana (Dia)">
-                    {formatCurrency(comm.deliverymanDailyDayWknd)}
-                  </InfoItem>
-                </>
-              )}
-              {comm.dailyPeriods.includes("WEEKEND_NIGHT") && (
-                <>
-                  <InfoItem label="Cliente - Fim de Semana (Noite)">
-                    {formatCurrency(comm.clientDailyNightWknd)}
-                  </InfoItem>
-                  <InfoItem label="Entregador - Fim de Semana (Noite)">
-                    {formatCurrency(comm.deliverymanDailyNightWknd)}
-                  </InfoItem>
-                </>
-              )}
-            </div>
-          </div>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                Diária
+                <div className="flex flex-wrap gap-1">
+                  {comm.dailyPeriods.map((p) => (
+                    <Badge key={p} variant="outline">
+                      {getPeriodLabel(p)}
+                    </Badge>
+                  ))}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Período</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Entregador</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {comm.dailyPeriods.includes("WEEK_DAY") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Semanal (Dia)</TableCell>
+                      <TableCell>{formatCurrency(comm.clientDailyDay)}</TableCell>
+                      <TableCell>{formatCurrency(comm.deliverymanDailyDay)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.dailyPeriods.includes("WEEK_NIGHT") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Semanal (Noite)</TableCell>
+                      <TableCell>{formatCurrency(comm.clientDailyNight)}</TableCell>
+                      <TableCell>{formatCurrency(comm.deliverymanDailyNight)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.dailyPeriods.includes("WEEKEND_DAY") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Fim de Semana (Dia)</TableCell>
+                      <TableCell>{formatCurrency(comm.clientDailyDayWknd)}</TableCell>
+                      <TableCell>{formatCurrency(comm.deliverymanDailyDayWknd)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.dailyPeriods.includes("WEEKEND_NIGHT") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Fim de Semana (Noite)</TableCell>
+                      <TableCell>{formatCurrency(comm.clientDailyNightWknd)}</TableCell>
+                      <TableCell>{formatCurrency(comm.deliverymanDailyNightWknd)}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
 
         {comm && comm.guaranteedPeriods.length > 0 && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Text variant="muted">Períodos - Qt. Garantida</Text>
-              <div className="flex flex-wrap gap-1">
-                {comm.guaranteedPeriods.map((p) => (
-                  <Badge key={p} variant="outline">
-                    {getPeriodLabel(p)}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {comm.guaranteedPeriods.includes("WEEK_DAY") && (
-                <>
-                  <InfoItem label="Qt. Garantida - Semanal (Dia)">{comm.guaranteedDay}</InfoItem>
-                  <InfoItem label="Taxa - Semanal (Dia)">{formatCurrency(comm.guaranteedDayTax)}</InfoItem>
-                </>
-              )}
-              {comm.guaranteedPeriods.includes("WEEK_NIGHT") && (
-                <>
-                  <InfoItem label="Qt. Garantida - Semanal (Noite)">{comm.guaranteedNight}</InfoItem>
-                  <InfoItem label="Taxa - Semanal (Noite)">{formatCurrency(comm.guaranteedNightTax)}</InfoItem>
-                </>
-              )}
-              {comm.guaranteedPeriods.includes("WEEKEND_DAY") && (
-                <>
-                  <InfoItem label="Qt. Garantida - Fim de Semana (Dia)">{comm.guaranteedDayWeekend}</InfoItem>
-                  <InfoItem label="Taxa - Fim de Semana (Dia)">{formatCurrency(comm.guaranteedDayWeekendTax)}</InfoItem>
-                </>
-              )}
-              {comm.guaranteedPeriods.includes("WEEKEND_NIGHT") && (
-                <>
-                  <InfoItem label="Qt. Garantida - Fim de Semana (Noite)">{comm.guaranteedNightWeekend}</InfoItem>
-                  <InfoItem label="Taxa - Fim de Semana (Noite)">
-                    {formatCurrency(comm.guaranteedNightWeekendTax)}
-                  </InfoItem>
-                </>
-              )}
-            </div>
-          </div>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                Qt. Garantida
+                <div className="flex flex-wrap gap-1">
+                  {comm.guaranteedPeriods.map((p) => (
+                    <Badge key={p} variant="outline">
+                      {getPeriodLabel(p)}
+                    </Badge>
+                  ))}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Período</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Taxa</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {comm.guaranteedPeriods.includes("WEEK_DAY") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Semanal (Dia)</TableCell>
+                      <TableCell>{comm.guaranteedDay}</TableCell>
+                      <TableCell>{formatCurrency(comm.guaranteedDayTax)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.guaranteedPeriods.includes("WEEK_NIGHT") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Semanal (Noite)</TableCell>
+                      <TableCell>{comm.guaranteedNight}</TableCell>
+                      <TableCell>{formatCurrency(comm.guaranteedNightTax)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.guaranteedPeriods.includes("WEEKEND_DAY") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Fim de Semana (Dia)</TableCell>
+                      <TableCell>{comm.guaranteedDayWeekend}</TableCell>
+                      <TableCell>{formatCurrency(comm.guaranteedDayWeekendTax)}</TableCell>
+                    </TableRow>
+                  )}
+                  {comm.guaranteedPeriods.includes("WEEKEND_NIGHT") && (
+                    <TableRow>
+                      <TableCell className="font-medium">Fim de Semana (Noite)</TableCell>
+                      <TableCell>{comm.guaranteedNightWeekend}</TableCell>
+                      <TableCell>{formatCurrency(comm.guaranteedNightWeekendTax)}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </section>
 
