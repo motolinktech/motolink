@@ -9,6 +9,7 @@ import {
   MessageCircleOffIcon,
   MoonIcon,
   PencilIcon,
+  SatelliteDishIcon,
   SendIcon,
   SunIcon,
   TagIcon,
@@ -54,7 +55,11 @@ import {
 } from "@/constants/work-shift-slot-status";
 import { cn } from "@/lib/cn";
 import { banDeliverymanAction } from "@/modules/client-blocks/client-blocks-actions";
-import { sendInviteAction, updateWorkShiftSlotStatusAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import {
+  sendInviteAction,
+  toggleTrackingConnectedAction,
+  updateWorkShiftSlotStatusAction,
+} from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { MonitoringWorkShiftDetailSheet } from "./monitoring-work-shift-detail-sheet";
 
@@ -87,6 +92,7 @@ interface WorkShiftSlot {
   absentReason?: string | null;
   isWeekendRate?: boolean;
   isDeliverymanBannedForClient?: boolean;
+  trackingConnected?: boolean;
 }
 
 interface MonitoringWorkShiftRowProps {
@@ -112,6 +118,8 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
   const { executeAsync: executeBanDeliveryman, isExecuting: isBanningDeliveryman } = useAction(banDeliverymanAction);
   const { executeAsync: executeSendInvite, isExecuting: isSendingInvite } = useAction(sendInviteAction);
+  const { executeAsync: executeToggleTracking, isExecuting: isTogglingTracking } =
+    useAction(toggleTrackingConnectedAction);
 
   const status = slot.status as WorkShiftSlotStatus;
   const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
@@ -319,6 +327,35 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
                   <TooltipContent>Avançar status</TooltipContent>
                 </Tooltip>
               )
+            )}
+
+            {status === "CHECKED_IN" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    disabled={isTogglingTracking}
+                    onClick={async () => {
+                      const result = await executeToggleTracking({ id: slot.id });
+                      if (result?.data?.error) {
+                        toast.error(result.data.error);
+                      } else {
+                        toast.success(slot.trackingConnected ? "Rastreamento desconectado" : "Rastreamento conectado");
+                        onRefresh?.();
+                      }
+                    }}
+                  >
+                    <SatelliteDishIcon
+                      className={cn("size-4", slot.trackingConnected ? "text-green-600" : "text-muted-foreground")}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {slot.trackingConnected ? "Rastreamento conectado" : "Conectar rastreamento"}
+                </TooltipContent>
+              </Tooltip>
             )}
 
             <Tooltip>

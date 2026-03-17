@@ -95,3 +95,9 @@ export const respondToInviteSchema = z.object({
 });
 
 export type RespondToInviteDTO = z.infer<typeof respondToInviteSchema>;
+
+export const workShiftSlotToggleTrackingSchema = z.object({
+  id: z.string().uuid({ message: "ID do turno inválido" }),
+});
+
+export type WorkShiftSlotToggleTrackingDTO = z.infer<typeof workShiftSlotToggleTrackingSchema>;

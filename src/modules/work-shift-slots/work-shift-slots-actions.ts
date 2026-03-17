@@ -5,8 +5,10 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { cookieConst } from "@/constants/cookies";
+import { historyTraceEntityConst } from "@/constants/history-trace";
 import { db } from "@/lib/database";
 import { safeAction } from "@/lib/safe-action";
+import { historyTracesService } from "../history-traces/history-traces-service";
 import { workShiftSlotsService } from "./work-shift-slots-service";
 import {
   discountCancelSchema,
@@ -16,6 +18,7 @@ import {
   sendInviteSchema,
   workShiftSlotCopySchema,
   workShiftSlotMutateSchema,
+  workShiftSlotToggleTrackingSchema,
   workShiftSlotUpdateTimesSchema,
 } from "./work-shift-slots-types";
 
@@ -226,3 +229,47 @@ export const sendBulkInviteAction = safeAction.inputSchema(sendBulkInviteSchema)
   revalidatePath("/operacional/monitoramento/semanal");
   return { success: true, sentCount: result.value.sentCount };
 });
+
+export const toggleTrackingConnectedAction = safeAction
+  .inputSchema(workShiftSlotToggleTrackingSchema)
+  .action(async ({ parsedInput }) => {
+    const cookieStore = await cookies();
+    const loggedUserId = cookieStore.get(cookieConst.USER_ID)?.value;
+
+    if (!loggedUserId) {
+      return { error: "Usuário não autenticado" };
+    }
+
+    const slot = await db.workShiftSlot.findUnique({
+      where: { id: parsedInput.id },
+      select: { id: true, trackingConnected: true },
+    });
+
+    if (!slot) {
+      return { error: "Turno não encontrado" };
+    }
+
+    const newValue = !slot.trackingConnected;
+    const updated = await db.workShiftSlot.update({
+      where: { id: parsedInput.id },
+      data: {
+        trackingConnected: newValue,
+        trackingConnectedAt: newValue ? new Date() : null,
+      },
+    });
+
+    historyTracesService()
+      .create({
+        userId: loggedUserId,
+        action: "UPDATED",
+        entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+        entityId: updated.id,
+        oldObject: { trackingConnected: slot.trackingConnected },
+        newObject: { trackingConnected: updated.trackingConnected },
+      })
+      .catch(() => {});
+
+    revalidatePath("/operacional/monitoramento/diario");
+    revalidatePath("/operacional/monitoramento/semanal");
+    return { success: true };
+  });
