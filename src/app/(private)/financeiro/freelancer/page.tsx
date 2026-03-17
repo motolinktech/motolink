@@ -23,7 +23,7 @@ interface FreelancerPageProps {
 }
 
 export default async function FreelancerPage({ searchParams }: FreelancerPageProps) {
-  if (!(await checkPagePermission("financial.view"))) return <AccessDenied />;
+  if (!(await checkPagePermission("payment-requests.view"))) return <AccessDenied />;
 
   const params = await searchParams;
   const deliverymanId = params.deliveryman || undefined;

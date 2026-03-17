@@ -35,12 +35,12 @@ export const navigationItems = [
       {
         title: "Freelancer",
         url: "/financeiro/freelancer",
-        requiredPermission: "financial.view",
+        requiredPermission: "payment-requests.view",
       },
       {
         title: "Colaborador Independente",
         url: "/financeiro/colaborador-independente",
-        requiredPermission: "financial.view",
+        requiredPermission: "payment-requests.view",
       },
     ],
   },

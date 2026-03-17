@@ -28,22 +28,25 @@ export const ROLE_PERMISSIONS = [
       "deliverymen.create",
       "deliverymen.edit",
       "deliverymen.delete",
-      "financial.view",
-      "financial.edit",
+      "payment-requests.view",
+      "payment-requests.edit",
     ],
   },
-  { role: "USER", label: "Usuário", permissions: ["operational.view", "operational.create", "operational.edit"] },
+  {
+    role: "USER",
+    label: "Usuário",
+    permissions: ["operational.view", "operational.create", "operational.edit", "payment-requests.view"],
+  },
 ];
 
 export const PERMISSION_MODULES = [
   { key: "users", label: "Colaboradores" },
-  { key: "branches", label: "Filiais" },
   { key: "clients", label: "Clientes" },
   { key: "groups", label: "Grupos" },
-  { key: "regions", label: "Regioes" },
+  { key: "regions", label: "Regiões" },
   { key: "deliverymen", label: "Entregadores" },
   { key: "operational", label: "Operacional" },
-  { key: "financial", label: "Financeiro" },
+  { key: "payment-requests", label: "Solicitações de Pagamento" },
 ] as const;
 
 export const PERMISSION_ACTIONS = [

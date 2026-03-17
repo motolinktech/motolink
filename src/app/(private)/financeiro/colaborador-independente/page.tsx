@@ -20,7 +20,7 @@ interface ColaboradorIndependentePageProps {
 }
 
 export default async function ColaboradorIndependentePage({ searchParams }: ColaboradorIndependentePageProps) {
-  if (!(await checkPagePermission("financial.view"))) return <AccessDenied />;
+  if (!(await checkPagePermission("payment-requests.view"))) return <AccessDenied />;
 
   const params = await searchParams;
   const deliverymanId = params.deliveryman || undefined;
