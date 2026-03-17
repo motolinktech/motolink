@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Noto_Sans } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
@@ -18,11 +19,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", notoSans.variable)}>
+    <html lang="en" className={cn("font-sans", notoSans.variable)} suppressHydrationWarning>
       <TooltipProvider>
         <body>
-          {children}
-          <Toaster position="top-right" richColors />
+          <ThemeProvider attribute="class" defaultTheme="light">
+            {children}
+            <Toaster position="top-right" richColors />
+          </ThemeProvider>
         </body>
       </TooltipProvider>
     </html>

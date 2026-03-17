@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { ContentHeader } from "@/components/composite/content-header";
 import { StatusBadge } from "@/components/composite/status-badge";
+import { ThemeSwitch } from "@/components/composite/theme-switch";
 import { ChangePasswordForm } from "@/components/forms/change-password-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,6 @@ export default async function PerfilPage() {
     <main className="mx-auto max-w-6xl space-y-6 py-6">
       <ContentHeader breadcrumbItems={[{ title: "Meu Perfil" }]} />
 
-      {/* Header */}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <Avatar size="lg" className="size-16">
@@ -82,7 +82,6 @@ export default async function PerfilPage() {
 
       <Separator />
 
-      {/* Personal Info */}
       <section className="space-y-4">
         <Heading variant="h3">Informações Pessoais</Heading>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -95,7 +94,13 @@ export default async function PerfilPage() {
 
       <Separator />
 
-      {/* Change Password */}
+      <section className="space-y-4">
+        <Heading variant="h3">Aparência</Heading>
+        <ThemeSwitch />
+      </section>
+
+      <Separator />
+
       <section className="space-y-4">
         <Heading variant="h3">Alterar Senha</Heading>
         <ChangePasswordForm userId={userId} />
