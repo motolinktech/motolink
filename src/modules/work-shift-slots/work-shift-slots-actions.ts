@@ -11,6 +11,8 @@ import { workShiftSlotsService } from "./work-shift-slots-service";
 import {
   discountCancelSchema,
   discountMutateSchema,
+  sendBulkInviteSchema,
+  sendInviteSchema,
   workShiftSlotCopySchema,
   workShiftSlotMutateSchema,
   workShiftSlotUpdateTimesSchema,
@@ -171,3 +173,45 @@ export const copyWorkShiftSlotsAction = safeAction
     revalidatePath("/operacional/monitoramento/semanal");
     return { success: true, degradedCount: result.value.degradedCount };
   });
+
+export const sendInviteAction = safeAction.inputSchema(sendInviteSchema).action(async ({ parsedInput }) => {
+  const cookieStore = await cookies();
+  const loggedUserId = cookieStore.get(cookieConst.USER_ID)?.value;
+
+  if (!loggedUserId) {
+    return { error: "Usuário não autenticado" };
+  }
+
+  const result = await workShiftSlotsService().sendInvite(parsedInput.workShiftSlotId, loggedUserId);
+
+  if (result.isErr()) {
+    return { error: result.error.reason };
+  }
+
+  revalidatePath("/operacional/monitoramento/diario");
+  revalidatePath("/operacional/monitoramento/semanal");
+  return { success: true };
+});
+
+export const sendBulkInviteAction = safeAction.inputSchema(sendBulkInviteSchema).action(async ({ parsedInput }) => {
+  const cookieStore = await cookies();
+  const loggedUserId = cookieStore.get(cookieConst.USER_ID)?.value;
+
+  if (!loggedUserId) {
+    return { error: "Usuário não autenticado" };
+  }
+
+  const result = await workShiftSlotsService().sendBulkInvite(
+    parsedInput.clientId,
+    parsedInput.shiftDate,
+    loggedUserId,
+  );
+
+  if (result.isErr()) {
+    return { error: result.error.reason };
+  }
+
+  revalidatePath("/operacional/monitoramento/diario");
+  revalidatePath("/operacional/monitoramento/semanal");
+  return { success: true, sentCount: result.value.sentCount };
+});

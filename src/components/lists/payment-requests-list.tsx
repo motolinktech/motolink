@@ -1,7 +1,16 @@
 "use client";
 
 import dayjs from "dayjs";
-import { ArrowRightIcon, EllipsisVerticalIcon, EyeIcon, InfoIcon, PencilIcon, UserIcon, XIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  BuildingIcon,
+  EllipsisVerticalIcon,
+  EyeIcon,
+  InfoIcon,
+  PencilIcon,
+  UserIcon,
+  XIcon,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -46,7 +55,7 @@ export interface PaymentRequestListItem {
   taxReason?: string | null;
   status: string;
   deliveryman?: { id: string; name: string } | null;
-  workShiftSlot?: { id: string; shiftDate: string | Date } | null;
+  workShiftSlot?: { id: string; shiftDate: string | Date; client?: { id: string; name: string } | null } | null;
 }
 
 interface PaymentRequestsListProps {
@@ -177,8 +186,8 @@ export function PaymentRequestsList({ items, onViewDetails, onEdit, userRole }: 
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
-                          <UserIcon className="size-3.5" />
-                          Colaborador independente
+                          <BuildingIcon className="size-3.5" />
+                          {item.workShiftSlot?.client?.name ?? "Sem cliente"}
                         </span>
                         <span className="inline-flex items-center gap-1.5">
                           <span className="size-1 rounded-full bg-current opacity-50" />

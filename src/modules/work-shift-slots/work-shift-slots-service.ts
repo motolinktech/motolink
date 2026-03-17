@@ -11,6 +11,7 @@ import {
   type PaymentRequestSyncResult,
   syncPaymentRequestFromCompletedWorkShiftSlot,
 } from "../payment-requests/payment-requests-service";
+import { whatsappService } from "../whatsapp/whatsapp-service";
 import type {
   DiscountMutateDTO,
   WorkShiftSlotListQueryDTO,
@@ -714,6 +715,232 @@ export function workShiftSlotsService() {
       } catch (error) {
         console.error("Error cancelling discount:", error);
         return errAsync({ reason: "Não foi possível cancelar o desconto", statusCode: 500 });
+      }
+    },
+
+    async sendInvite(workShiftSlotId: string, loggedUserId: string) {
+      try {
+        const slot = await db.workShiftSlot.findUnique({
+          where: { id: workShiftSlotId },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                street: true,
+                number: true,
+                complement: true,
+                city: true,
+                neighborhood: true,
+                uf: true,
+                branchId: true,
+              },
+            },
+            deliveryman: { select: { id: true, name: true, phone: true } },
+          },
+        });
+
+        if (!slot) {
+          return errAsync({ reason: "Turno de trabalho não encontrado", statusCode: 404 });
+        }
+
+        if (!slot.deliveryman) {
+          return errAsync({ reason: "Turno não possui entregador atribuído", statusCode: 400 });
+        }
+
+        if (!slot.deliveryman.phone) {
+          return errAsync({ reason: "Entregador não possui telefone cadastrado", statusCode: 400 });
+        }
+
+        if (TERMINAL_STATUSES.includes(slot.status)) {
+          return errAsync({ reason: "Não é possível enviar convite para um turno finalizado", statusCode: 400 });
+        }
+
+        const deliveryman = slot.deliveryman;
+        const token = crypto.randomUUID();
+        const expiresAt = dayjs().add(24, "hour").toDate();
+
+        const addressParts = [slot.client.street, slot.client.number].filter(Boolean).join(", ");
+        const addressSuffix = [
+          slot.client.complement,
+          slot.client.neighborhood,
+          `${slot.client.city}/${slot.client.uf}`,
+        ]
+          .filter(Boolean)
+          .join(" - ");
+        const clientAddress = [addressParts, addressSuffix].filter(Boolean).join(" - ");
+
+        const invite = await db.$transaction(async (tx) => {
+          const createdInvite = await tx.invite.create({
+            data: {
+              token,
+              workShiftSlotId: slot.id,
+              deliverymanId: deliveryman.id,
+              clientId: slot.client.id,
+              clientName: slot.client.name,
+              clientAddress,
+              shiftDate: slot.shiftDate,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              expiresAt,
+            },
+          });
+
+          const updateData: Record<string, unknown> = {
+            inviteSentAt: new Date(),
+            inviteToken: token,
+            inviteExpiresAt: expiresAt,
+          };
+
+          if (slot.status === "OPEN") {
+            updateData.status = "INVITED";
+          }
+
+          await tx.workShiftSlot.update({ where: { id: slot.id }, data: updateData });
+
+          return createdInvite;
+        });
+
+        whatsappService()
+          .sendInvite({
+            phone: deliveryman.phone,
+            branchId: slot.client.branchId,
+            type: "WORK_SHIFT",
+            content: {
+              deliverymanName: deliveryman.name,
+              clientName: slot.client.name,
+              clientAddress,
+              shiftDate: dayjs.utc(slot.shiftDate).format("DD/MM/YYYY"),
+              startTime: dayjs(slot.startTime).format("HH:mm"),
+              endTime: dayjs(slot.endTime).format("HH:mm"),
+              token,
+            },
+          })
+          .catch(() => {});
+
+        historyTracesService()
+          .create({
+            userId: loggedUserId,
+            action: historyTraceActionConst.UPDATED,
+            entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+            entityId: slot.id,
+            newObject: { inviteSentAt: new Date(), inviteToken: token },
+          })
+          .catch(() => {});
+
+        return okAsync({ invite });
+      } catch (error) {
+        console.error("Error sending invite:", error);
+        return errAsync({ reason: "Não foi possível enviar o convite", statusCode: 500 });
+      }
+    },
+
+    async sendBulkInvite(clientId: string, shiftDate: Date, loggedUserId: string) {
+      try {
+        const slots = await db.workShiftSlot.findMany({
+          where: {
+            clientId,
+            shiftDate,
+            status: "INVITED",
+            deliverymanId: { not: null },
+          },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                street: true,
+                number: true,
+                complement: true,
+                city: true,
+                neighborhood: true,
+                uf: true,
+                branchId: true,
+              },
+            },
+            deliveryman: { select: { id: true, name: true, phone: true } },
+          },
+        });
+
+        if (slots.length === 0) {
+          return errAsync({ reason: "Nenhum turno com status convidado encontrado", statusCode: 404 });
+        }
+
+        let sentCount = 0;
+
+        for (const slot of slots) {
+          const slotDeliveryman = slot.deliveryman;
+          if (!slotDeliveryman?.phone) continue;
+
+          const token = crypto.randomUUID();
+          const expiresAt = dayjs().add(24, "hour").toDate();
+
+          const addressParts = [slot.client.street, slot.client.number].filter(Boolean).join(", ");
+          const addressSuffix = [
+            slot.client.complement,
+            slot.client.neighborhood,
+            `${slot.client.city}/${slot.client.uf}`,
+          ]
+            .filter(Boolean)
+            .join(" - ");
+          const clientAddress = [addressParts, addressSuffix].filter(Boolean).join(" - ");
+
+          await db.$transaction(async (tx) => {
+            await tx.invite.create({
+              data: {
+                token,
+                workShiftSlotId: slot.id,
+                deliverymanId: slotDeliveryman.id,
+                clientId: slot.client.id,
+                clientName: slot.client.name,
+                clientAddress,
+                shiftDate: slot.shiftDate,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                expiresAt,
+              },
+            });
+
+            await tx.workShiftSlot.update({
+              where: { id: slot.id },
+              data: { inviteSentAt: new Date(), inviteToken: token, inviteExpiresAt: expiresAt },
+            });
+          });
+
+          whatsappService()
+            .sendInvite({
+              phone: slotDeliveryman.phone,
+              branchId: slot.client.branchId,
+              type: "WORK_SHIFT",
+              content: {
+                deliverymanName: slotDeliveryman.name,
+                clientName: slot.client.name,
+                clientAddress,
+                shiftDate: dayjs.utc(slot.shiftDate).format("DD/MM/YYYY"),
+                startTime: dayjs(slot.startTime).format("HH:mm"),
+                endTime: dayjs(slot.endTime).format("HH:mm"),
+                token,
+              },
+            })
+            .catch(() => {});
+
+          historyTracesService()
+            .create({
+              userId: loggedUserId,
+              action: historyTraceActionConst.UPDATED,
+              entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+              entityId: slot.id,
+              newObject: { inviteSentAt: new Date(), inviteToken: token },
+            })
+            .catch(() => {});
+
+          sentCount++;
+        }
+
+        return okAsync({ sentCount });
+      } catch (error) {
+        console.error("Error sending bulk invites:", error);
+        return errAsync({ reason: "Não foi possível enviar os convites em massa", statusCode: 500 });
       }
     },
 

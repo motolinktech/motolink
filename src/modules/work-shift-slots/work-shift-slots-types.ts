@@ -75,3 +75,16 @@ export const workShiftSlotCopySchema = z.object({
   clientId: z.string().uuid({ message: "ID do cliente inválido" }),
 });
 export type WorkShiftSlotCopyDTO = z.infer<typeof workShiftSlotCopySchema>;
+
+export const sendInviteSchema = z.object({
+  workShiftSlotId: z.string().uuid({ message: "ID do turno inválido" }),
+});
+
+export type SendInviteDTO = z.infer<typeof sendInviteSchema>;
+
+export const sendBulkInviteSchema = z.object({
+  clientId: z.string().uuid({ message: "ID do cliente inválido" }),
+  shiftDate: z.coerce.date({ message: "Data do turno é obrigatória" }),
+});
+
+export type SendBulkInviteDTO = z.infer<typeof sendBulkInviteSchema>;

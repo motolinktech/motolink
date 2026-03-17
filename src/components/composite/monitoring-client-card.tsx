@@ -11,6 +11,7 @@ import {
   MoonIcon,
   PackageIcon,
   PlusIcon,
+  SendIcon,
   ShieldCheckIcon,
   SunIcon,
   TruckIcon,
@@ -34,9 +35,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Spinner } from "@/components/ui/spinner";
 import { PAYMENT_TYPE_LABELS, PERIOD_TYPE_LABELS } from "@/constants/commercial-conditions";
 import { PLANNING_PERIOD_LABELS, type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
-import { copyWorkShiftSlotsAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import { copyWorkShiftSlotsAction, sendBulkInviteAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { MonitoringPlanningRow } from "./monitoring-planning-row";
 import { MonitoringWorkShiftRow } from "./monitoring-work-shift-row";
@@ -97,7 +99,7 @@ interface WorkShiftSlot {
   checkOutAt?: string | null;
   deliverymenPaymentValue: string;
   totalValueToPay?: number | string;
-  deliveryman?: { id: string; name: string } | null;
+  deliveryman?: { id: string; name: string; phone?: string } | null;
   deliverymanAmountDay?: number | string;
   deliverymanAmountNight?: number | string;
   deliverymanPaymentType?: string;
@@ -169,6 +171,20 @@ export function MonitoringClientCard({
   const [confirmPasteOpen, setConfirmPasteOpen] = useState(false);
 
   const { executeAsync: executeCopy, isExecuting: isCopying } = useAction(copyWorkShiftSlotsAction);
+  const { executeAsync: executeBulkInvite, isExecuting: isSendingBulkInvite } = useAction(sendBulkInviteAction);
+
+  const hasInvitedSlots = workShiftSlots.some((s) => s.status === "INVITED" && s.deliveryman);
+
+  const handleBulkInvite = async () => {
+    const result = await executeBulkInvite({ clientId: client.id, shiftDate: new Date(shiftDate) });
+    if (result?.data?.error) {
+      toast.error(result.data.error);
+    } else {
+      const sentCount = result?.data?.sentCount ?? 0;
+      toast.success(`${sentCount} convite(s) enviado(s) com sucesso`);
+      onRefresh?.();
+    }
+  };
 
   const handlePaste = async () => {
     if (!copySourceDate) return;
@@ -334,6 +350,17 @@ export function MonitoringClientCard({
                     );
                   })}
                 </div>
+              )}
+              {hasInvitedSlots && (
+                <button
+                  type="button"
+                  onClick={handleBulkInvite}
+                  disabled={isSendingBulkInvite}
+                  className="flex size-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary"
+                  title="Enviar convites WhatsApp"
+                >
+                  {isSendingBulkInvite ? <Spinner className="size-4" /> : <SendIcon className="size-4" />}
+                </button>
               )}
               {workShiftSlots.length > 0 && !isCopyTarget && onCopy && (
                 <button

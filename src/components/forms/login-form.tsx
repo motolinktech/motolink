@@ -1,8 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertCircleIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -17,10 +19,18 @@ function LoginForm() {
   } = useForm<CreateSessionDTO>({
     resolver: zodResolver(createSessionSchema),
   });
-  const { execute, isExecuting } = useAction(createSessionAction);
+  const { execute, result, isExecuting } = useAction(createSessionAction);
+  const actionError = result.data?.reason;
 
   return (
     <form onSubmit={handleSubmit((data) => execute(data))} className="flex flex-col gap-6">
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
+
       <Field data-invalid={!!errors.email}>
         <FieldLabel htmlFor="email">E-mail</FieldLabel>
         <Input id="email" type="email" placeholder="seu@email.com" {...register("email")} />

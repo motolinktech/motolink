@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +54,7 @@ import {
 } from "@/constants/work-shift-slot-status";
 import { cn } from "@/lib/cn";
 import { banDeliverymanAction } from "@/modules/client-blocks/client-blocks-actions";
-import { updateWorkShiftSlotStatusAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import { sendInviteAction, updateWorkShiftSlotStatusAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { MonitoringWorkShiftDetailSheet } from "./monitoring-work-shift-detail-sheet";
 
@@ -72,7 +71,7 @@ interface WorkShiftSlot {
   checkOutAt?: string | null;
   deliverymenPaymentValue: string;
   totalValueToPay?: number | string;
-  deliveryman?: { id: string; name: string } | null;
+  deliveryman?: { id: string; name: string; phone?: string } | null;
   deliverymanAmountDay?: number | string;
   deliverymanAmountNight?: number | string;
   deliverymanPaymentType?: string;
@@ -107,7 +106,6 @@ export function MonitoringWorkShiftRow({
   shiftDate,
   onRefresh,
 }: MonitoringWorkShiftRowProps) {
-  const [dialogType, setDialogType] = useState<string | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editTimesSheetOpen, setEditTimesSheetOpen] = useState(false);
   const [addDiscountSheetOpen, setAddDiscountSheetOpen] = useState(false);
@@ -119,8 +117,10 @@ export function MonitoringWorkShiftRow({
   const [absentReason, setAbsentReason] = useState("");
   const [unansweredDialogOpen, setUnansweredDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
   const { executeAsync, isExecuting } = useAction(updateWorkShiftSlotStatusAction);
   const { executeAsync: executeBanDeliveryman, isExecuting: isBanningDeliveryman } = useAction(banDeliverymanAction);
+  const { executeAsync: executeSendInvite, isExecuting: isSendingInvite } = useAction(sendInviteAction);
 
   const status = slot.status as WorkShiftSlotStatus;
   const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
@@ -338,8 +338,14 @@ export function MonitoringWorkShiftRow({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" onClick={() => setDialogType("invite")}>
-                  <SendIcon className="size-4" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setInviteConfirmOpen(true)}
+                  disabled={!slot.deliveryman || isTerminal || isSendingInvite}
+                >
+                  {isSendingInvite ? <Spinner className="size-4" /> : <SendIcon className="size-4" />}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Enviar convite</TooltipContent>
@@ -415,15 +421,35 @@ export function MonitoringWorkShiftRow({
         onRefresh={onRefresh}
       />
 
-      {/* Other dialogs (placeholders for non-edit-shift features) */}
-      <Dialog open={dialogType !== null} onOpenChange={(open) => !open && setDialogType(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{dialogType === "invite" && "Enviar convite"}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Funcionalidade em desenvolvimento.</p>
-        </DialogContent>
-      </Dialog>
+      {/* Send invite confirmation dialog */}
+      <AlertDialog open={inviteConfirmOpen} onOpenChange={setInviteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar convite</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja enviar o convite via WhatsApp para {slot.deliveryman?.name}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const result = await executeSendInvite({ workShiftSlotId: slot.id });
+                if (result?.data?.error) {
+                  toast.error(result.data.error);
+                } else {
+                  toast.success("Convite enviado com sucesso");
+                  onRefresh?.();
+                }
+              }}
+              disabled={isSendingInvite}
+            >
+              {isSendingInvite ? <Spinner className="mr-1 size-3" /> : null}
+              Enviar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet
         open={banSheetOpen}

@@ -16,7 +16,7 @@ const monitoringClientInclude = {
 } as const;
 
 const monitoringWorkShiftInclude = {
-  deliveryman: { select: { id: true, name: true } },
+  deliveryman: { select: { id: true, name: true, phone: true } },
   discounts: { orderBy: { createdAt: "desc" as const } },
 } as const;
 

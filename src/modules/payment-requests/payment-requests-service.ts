@@ -251,7 +251,7 @@ export function paymentRequestsService() {
             orderBy: { createdAt: "desc" },
             include: {
               deliveryman: { select: { id: true, name: true } },
-              workShiftSlot: { select: { id: true, shiftDate: true } },
+              workShiftSlot: { select: { id: true, shiftDate: true, client: { select: { id: true, name: true } } } },
             },
           }),
         ]);

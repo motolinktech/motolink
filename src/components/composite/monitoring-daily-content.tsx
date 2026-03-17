@@ -112,7 +112,7 @@ interface MonitoringClient {
     checkOutAt?: string | null;
     deliverymenPaymentValue: string;
     totalValueToPay?: number | string;
-    deliveryman?: { id: string; name: string } | null;
+    deliveryman?: { id: string; name: string; phone?: string } | null;
     deliverymanAmountDay?: number | string;
     deliverymanAmountNight?: number | string;
     deliverymanPaymentType?: string;
