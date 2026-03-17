@@ -9,7 +9,7 @@ import { cookieConst } from "@/constants/cookies";
 import { safeAction } from "@/lib/safe-action";
 import { cleanMask } from "@/utils/masks/clean-mask";
 import { usersService } from "./users-service";
-import { newPasswordSchema, userMutateSchema } from "./users-types";
+import { changePasswordSchema, newPasswordSchema, userMutateSchema } from "./users-types";
 
 dayjs.extend(customParseFormat);
 
@@ -57,6 +57,31 @@ export const mutateUserAction = safeAction.inputSchema(userMutateSchema).action(
 
 export const newPasswordAction = safeAction.inputSchema(newPasswordSchema).action(async ({ parsedInput }) => {
   const result = await usersService().setPassword(parsedInput.token, parsedInput.userId, parsedInput.password);
+
+  if (result.isErr()) {
+    return { error: result.error.reason };
+  }
+
+  return { success: true };
+});
+
+export const changePasswordAction = safeAction.inputSchema(changePasswordSchema).action(async ({ parsedInput }) => {
+  const cookieStore = await cookies();
+  const loggedUserId = cookieStore.get(cookieConst.USER_ID)?.value;
+
+  if (!loggedUserId) {
+    return { error: "Usuário não autenticado" };
+  }
+
+  if (loggedUserId !== parsedInput.userId) {
+    return { error: "Você só pode alterar sua própria senha" };
+  }
+
+  const result = await usersService().changePassword(
+    parsedInput.userId,
+    parsedInput.oldPassword,
+    parsedInput.newPassword,
+  );
 
   if (result.isErr()) {
     return { error: result.error.reason };

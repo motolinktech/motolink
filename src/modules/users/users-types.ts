@@ -63,3 +63,30 @@ export const newPasswordSchema = z.object({
 });
 
 export type NewPasswordDTO = z.infer<typeof newPasswordSchema>;
+
+export const changePasswordFormSchema = z
+  .object({
+    userId: z.string().min(1, "ID do usuário é obrigatório"),
+    oldPassword: z.string().min(1, "Senha atual é obrigatória"),
+    newPassword: z.string().min(8, { message: "A senha deve ter no mínimo 8 caracteres" }).regex(passwordRegex, {
+      message:
+        "A senha deve conter ao menos uma letra maiúscula, uma letra minúscula, um número e um caractere especial",
+    }),
+    confirmNewPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmNewPassword"],
+  });
+
+export type ChangePasswordFormSchema = z.infer<typeof changePasswordFormSchema>;
+
+export const changePasswordSchema = z.object({
+  userId: z.string().min(1, "ID do usuário é obrigatório"),
+  oldPassword: z.string().min(1, "Senha atual é obrigatória"),
+  newPassword: z.string().min(8, { message: "A senha deve ter no mínimo 8 caracteres" }).regex(passwordRegex, {
+    message: "A senha deve conter ao menos uma letra maiúscula, uma letra minúscula, um número e um caractere especial",
+  }),
+});
+
+export type ChangePasswordDTO = z.infer<typeof changePasswordSchema>;

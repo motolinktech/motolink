@@ -243,6 +243,45 @@ export function usersService() {
       }
     },
 
+    async changePassword(userId: string, oldPassword: string, newPassword: string) {
+      try {
+        const user = await db.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user || !user.password) {
+          return errAsync({
+            reason: "Usuário não encontrado",
+            statusCode: 404,
+          });
+        }
+
+        const { valid } = await hash().compare(oldPassword, user.password);
+
+        if (!valid) {
+          return errAsync({
+            reason: "Senha atual incorreta",
+            statusCode: 400,
+          });
+        }
+
+        const hashedPassword = await hash().create(newPassword);
+
+        await db.user.update({
+          where: { id: userId },
+          data: { password: hashedPassword },
+        });
+
+        return okAsync({ success: true });
+      } catch (error) {
+        console.error("Error changing user password:", error);
+        return errAsync({
+          reason: "Não foi possível alterar a senha",
+          statusCode: 500,
+        });
+      }
+    },
+
     async delete(id: string, loggedUserId: string) {
       try {
         const existingUser = await db.user.findUnique({

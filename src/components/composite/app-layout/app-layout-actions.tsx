@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOutIcon } from "lucide-react";
+import { LogOutIcon, UserIcon } from "lucide-react";
+import Link from "next/link";
 import { useTransition } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Text } from "@/components/ui/text";
 import { deleteSessionAction } from "@/modules/sessions/sessions-actions";
+import packageJson from "../../../../package.json";
 
 interface AppLayoutActionsProps {
   user: { name: string; email: string };
@@ -46,10 +50,23 @@ export function AppLayoutActions({ user }: AppLayoutActionsProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem asChild>
+          <Link href="/perfil">
+            <UserIcon />
+            Meu Perfil
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={isPending}>
           <LogOutIcon />
           Sair da conta
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="px-4 py-2">
+          <Text variant="muted" className="text-center w-full">
+            v{packageJson.version}
+          </Text>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
