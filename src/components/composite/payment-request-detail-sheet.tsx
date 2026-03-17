@@ -22,6 +22,8 @@ interface PaymentRequestDetail {
   discountReason?: string | null;
   additionalTax: number;
   taxReason?: string | null;
+  additionalKm?: number;
+  deliverymanAdditionalKm?: number;
   status: string;
   deliveryman?: { id: string; name: string } | null;
   workShiftSlot?: { id: string; shiftDate: string | Date } | null;
@@ -66,7 +68,8 @@ export function PaymentRequestDetailSheet({ item, open, onOpenChange }: PaymentR
   const status = item.status as PaymentRequestStatus;
   const statusLabel = PAYMENT_REQUEST_STATUS_LABELS[status] ?? item.status;
   const statusColor = PAYMENT_REQUEST_STATUS_COLORS[status] ?? "bg-gray-100 text-gray-800";
-  const netTotal = item.amount - item.discount + item.additionalTax;
+  const kmCost = (item.additionalKm ?? 0) * (item.deliverymanAdditionalKm ?? 0);
+  const netTotal = item.amount - item.discount + item.additionalTax + kmCost;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -118,6 +121,14 @@ export function PaymentRequestDetailSheet({ item, open, onOpenChange }: PaymentR
                 </div>
               )}
               {item.taxReason && <p className="pl-0 text-xs text-muted-foreground/70">{item.taxReason}</p>}
+              {(item.additionalKm ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Km adicional ({item.additionalKm} km × {formatMoneyDisplay(item.deliverymanAdditionalKm ?? 0)})
+                  </span>
+                  <span className="font-medium tabular-nums">+ {formatMoneyDisplay(kmCost)}</span>
+                </div>
+              )}
               <div className="border-t my-2" />
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold">Total líquido</span>

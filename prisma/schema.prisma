@@ -276,21 +276,23 @@ model WorkShiftSlot {
 }
 
 model PaymentRequest {
-  id              String        @id @default(uuid(7))
-  workShiftSlotId String        @unique
-  workShiftSlot   WorkShiftSlot @relation(fields: [workShiftSlotId], references: [id], onDelete: Cascade)
-  deliverymanId   String
-  deliveryman     Deliveryman   @relation(fields: [deliverymanId], references: [id], onDelete: Restrict)
-  contractType    String        @default("")
-  amount          Decimal       @db.Decimal(16, 2)
-  discount        Decimal       @db.Decimal(16, 2)
-  discountReason  String?
-  additionalTax   Decimal       @db.Decimal(16, 2)
-  taxReason       String?
-  status          String        @default("NEW")
-  logs            Json[]        @default([])
-  updatedAt       DateTime      @updatedAt
-  createdAt       DateTime      @default(now())
+  id                      String        @id @default(uuid(7))
+  workShiftSlotId         String        @unique
+  workShiftSlot           WorkShiftSlot @relation(fields: [workShiftSlotId], references: [id], onDelete: Cascade)
+  deliverymanId           String
+  deliveryman             Deliveryman   @relation(fields: [deliverymanId], references: [id], onDelete: Restrict)
+  contractType            String        @default("")
+  amount                  Decimal       @db.Decimal(16, 2)
+  discount                Decimal       @db.Decimal(16, 2)
+  discountReason          String?
+  additionalTax           Decimal       @default(0) @db.Decimal(16, 2)
+  deliverymanAdditionalKm Decimal       @default(0) @db.Decimal(16, 2)
+  additionalKm            Int           @default(0)
+  taxReason               String?
+  status                  String        @default("NEW")
+  logs                    Json[]        @default([])
+  updatedAt               DateTime      @updatedAt
+  createdAt               DateTime      @default(now())
 
   @@map("payment_requests")
 }

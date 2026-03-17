@@ -1,16 +1,7 @@
 "use client";
 
 import dayjs from "dayjs";
-import {
-  ArrowRightIcon,
-  BuildingIcon,
-  EllipsisVerticalIcon,
-  EyeIcon,
-  InfoIcon,
-  PencilIcon,
-  UserIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowRightIcon, BuildingIcon, EllipsisVerticalIcon, EyeIcon, InfoIcon, PencilIcon, XIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,12 +20,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   PAYMENT_REQUEST_STATUS_LABELS,
@@ -53,6 +53,8 @@ export interface PaymentRequestListItem {
   discountReason?: string | null;
   additionalTax: number;
   taxReason?: string | null;
+  additionalKm?: number;
+  deliverymanAdditionalKm?: number;
   status: string;
   deliveryman?: { id: string; name: string } | null;
   workShiftSlot?: { id: string; shiftDate: string | Date; client?: { id: string; name: string } | null } | null;
@@ -98,8 +100,36 @@ function getInitials(name?: string | null): string {
 
 export function PaymentRequestsList({ items, onViewDetails, onEdit, userRole }: PaymentRequestsListProps) {
   const [statusTarget, setStatusTarget] = useState<{ item: PaymentRequestListItem; status: string } | null>(null);
+  const [approvalTarget, setApprovalTarget] = useState<PaymentRequestListItem | null>(null);
+  const [additionalKm, setAdditionalKm] = useState(0);
   const [cancelTarget, setCancelTarget] = useState<PaymentRequestListItem | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function handleStatusChange(item: PaymentRequestListItem, status: string) {
+    if (status === "APPROVED") {
+      setApprovalTarget(item);
+      setAdditionalKm(0);
+    } else {
+      setStatusTarget({ item, status });
+    }
+  }
+
+  function handleApprove() {
+    if (!approvalTarget) return;
+    startTransition(async () => {
+      const result = await updatePaymentRequestStatusAction({
+        id: approvalTarget.id,
+        status: "APPROVED",
+        additionalKm,
+      });
+      if (result?.data?.error) {
+        toast.error(result.data.error);
+      } else {
+        toast.success(`Status atualizado para ${PAYMENT_REQUEST_STATUS_LABELS.APPROVED}`);
+      }
+      setApprovalTarget(null);
+    });
+  }
 
   function handleAdvanceStatus() {
     if (!statusTarget) return;
@@ -151,7 +181,8 @@ export function PaymentRequestsList({ items, onViewDetails, onEdit, userRole }: 
           const statusSurface = PAYMENT_REQUEST_STATUS_SURFACE[status] ?? "border-l-primary bg-muted/40";
           const statusBadge = PAYMENT_REQUEST_STATUS_BADGE[status] ?? "bg-muted text-foreground";
           const canChangeStatus = !(status === "EDITED" && userRole !== "ADMIN");
-          const netTotal = item.amount - item.discount + item.additionalTax;
+          const kmCost = (item.additionalKm ?? 0) * (item.deliverymanAdditionalKm ?? 0);
+          const netTotal = item.amount - item.discount + item.additionalTax + kmCost;
           const shiftDate = item.workShiftSlot?.shiftDate
             ? dayjs(item.workShiftSlot.shiftDate).format("DD/MM/YYYY")
             : "—";
@@ -213,7 +244,7 @@ export function PaymentRequestsList({ items, onViewDetails, onEdit, userRole }: 
                               variant="outline"
                               size="sm"
                               disabled={isTerminal || isPending}
-                              onClick={() => setStatusTarget({ item, status: primaryTransition })}
+                              onClick={() => handleStatusChange(item, primaryTransition)}
                               className="border-border/70 bg-background"
                             >
                               <ArrowRightIcon className="size-4" />
@@ -299,6 +330,58 @@ export function PaymentRequestsList({ items, onViewDetails, onEdit, userRole }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!approvalTarget}
+        onOpenChange={(open) => {
+          if (!open) setApprovalTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprovar solicitação</DialogTitle>
+            <DialogDescription>
+              Informe a quantidade de km adicional para esta solicitação de pagamento.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Valor por km adicional</span>
+              <span className="font-medium">{formatMoneyDisplay(approvalTarget?.deliverymanAdditionalKm ?? 0)}</span>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="additionalKm" className="text-sm font-medium">
+                Km adicional
+              </label>
+              <Input
+                id="additionalKm"
+                type="number"
+                min={0}
+                value={additionalKm}
+                onChange={(e) => setAdditionalKm(Math.max(0, Number.parseInt(e.target.value, 10) || 0))}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Total km adicional</span>
+              <span className="font-semibold">
+                {formatMoneyDisplay(additionalKm * (approvalTarget?.deliverymanAdditionalKm ?? 0))}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" disabled={isPending} onClick={() => setApprovalTarget(null)}>
+              Cancelar
+            </Button>
+            <Button disabled={isPending} onClick={handleApprove}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!cancelTarget}

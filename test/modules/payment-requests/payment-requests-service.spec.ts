@@ -96,6 +96,7 @@ async function createTestPaymentRequest(
       amount: overrides.amount ?? 100,
       discount: overrides.discount ?? 0,
       additionalTax: overrides.additionalTax ?? 0,
+      deliverymanAdditionalKm: 0,
       status: overrides.status ?? "NEW",
     },
   });

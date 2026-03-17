@@ -58,12 +58,14 @@ export const updatePaymentRequestAction = safeAction.inputSchema(updateInputSche
   }
 
   revalidatePath("/financeiro/freelancer");
+  revalidatePath("/financeiro/colaborador-independente");
   return { success: true };
 });
 
 const updateStatusInputSchema = z.object({
   id: z.string().uuid({ message: "ID inválido" }),
   status: z.string().min(1, { message: "Status é obrigatório" }),
+  additionalKm: z.coerce.number().int().nonnegative().optional(),
 });
 
 export const updatePaymentRequestStatusAction = safeAction
@@ -89,12 +91,18 @@ export const updatePaymentRequestStatusAction = safeAction
       return { error: "Apenas administradores podem alterar o status de solicitações editadas" };
     }
 
-    const result = await paymentRequestsService().updateStatus(parsedInput.id, parsedInput.status, loggedUserId);
+    const result = await paymentRequestsService().updateStatus(
+      parsedInput.id,
+      parsedInput.status,
+      loggedUserId,
+      parsedInput.additionalKm,
+    );
 
     if (result.isErr()) {
       return { error: result.error.reason };
     }
 
     revalidatePath("/financeiro/freelancer");
+    revalidatePath("/financeiro/colaborador-independente");
     return { success: true };
   });

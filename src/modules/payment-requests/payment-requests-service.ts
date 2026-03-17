@@ -20,6 +20,7 @@ type PaymentRequestDbClient = Prisma.TransactionClient | typeof db;
 
 type CompletedSlotForPaymentRequest = WorkShiftSlot & {
   discounts: Pick<Discount, "amount">[];
+  client: { commercialCondition: { deliverymanAdditionalKm: Prisma.Decimal } | null };
 };
 
 function calculateOperationalAmount(slot: CompletedSlotForPaymentRequest) {
@@ -41,6 +42,13 @@ async function loadCompletedSlotForPaymentRequest(tx: PaymentRequestDbClient, wo
       discounts: {
         where: { status: "ACTIVE" },
         select: { amount: true },
+      },
+      client: {
+        select: {
+          commercialCondition: {
+            select: { deliverymanAdditionalKm: true },
+          },
+        },
       },
     },
   });
@@ -65,6 +73,7 @@ export async function syncPaymentRequestFromCompletedWorkShiftSlot(
   }
 
   const amount = calculateOperationalAmount(slot);
+  const deliverymanAdditionalKm = Number(slot.client?.commercialCondition?.deliverymanAdditionalKm ?? 0);
   const existing = await tx.paymentRequest.findFirst({
     where: { workShiftSlotId },
   });
@@ -78,6 +87,7 @@ export async function syncPaymentRequestFromCompletedWorkShiftSlot(
         amount,
         discount: 0,
         additionalTax: 0,
+        deliverymanAdditionalKm,
         status: "NEW",
       },
     });
@@ -100,6 +110,7 @@ export async function syncPaymentRequestFromCompletedWorkShiftSlot(
       deliverymanId: slot.deliverymanId,
       contractType: slot.contractType,
       amount,
+      deliverymanAdditionalKm,
     },
   });
 
@@ -119,6 +130,7 @@ export function paymentRequestsService() {
             ...body,
             discount: body.discount ?? 0,
             additionalTax: body.additionalTax ?? 0,
+            deliverymanAdditionalKm: 0,
           },
         });
 
@@ -196,7 +208,7 @@ export function paymentRequestsService() {
       }
     },
 
-    async updateStatus(id: string, status: string, loggedUserId: string) {
+    async updateStatus(id: string, status: string, loggedUserId: string, additionalKm?: number) {
       try {
         const existing = await db.paymentRequest.findUnique({ where: { id } });
 
@@ -204,7 +216,10 @@ export function paymentRequestsService() {
           return errAsync({ reason: "Solicitação de pagamento não encontrada", statusCode: 404 });
         }
 
-        const updated = await db.paymentRequest.update({ where: { id }, data: { status } });
+        const updated = await db.paymentRequest.update({
+          where: { id },
+          data: { status, ...(additionalKm !== undefined && { additionalKm }) },
+        });
 
         historyTracesService()
           .create({
