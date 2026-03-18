@@ -31,7 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -281,22 +280,27 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
       >
         <div className="flex items-center gap-4">
           <div className="min-w-80 lg:border-r lg:border-gray-200 lg:pr-4">
-            <div className="flex items-center gap-2">
-              <p className="max-w-[12rem] truncate text-sm font-medium">{slot.deliveryman?.name ?? "Sem entregador"}</p>
-              {isBannedAssigned && (
-                <span
-                  title={
-                    isBannedLocked
-                      ? "Entregador banido para este cliente. Este turno não pode ser editado."
-                      : "Entregador banido para este cliente. O turno de hoje ainda pode ser editado manualmente."
-                  }
-                >
-                  <BanIcon
-                    className="size-3.5 shrink-0 text-destructive"
-                    aria-label="Entregador banido para este cliente"
-                  />
-                </span>
-              )}
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <p className="max-w-[12rem] truncate text-sm font-medium">
+                  {slot.deliveryman?.name ?? "Sem entregador"}
+                </p>
+                {isBannedAssigned && (
+                  <span
+                    title={
+                      isBannedLocked
+                        ? "Entregador banido para este cliente. Este turno não pode ser editado."
+                        : "Entregador banido para este cliente. O turno de hoje ainda pode ser editado manualmente."
+                    }
+                  >
+                    <BanIcon
+                      className="size-3.5 shrink-0 text-destructive"
+                      aria-label="Entregador banido para este cliente"
+                    />
+                  </span>
+                )}
+              </div>
+              <p className="max-w-[12rem] truncate text-xs text-muted-foreground">{contractLabel}</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
@@ -313,9 +317,6 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
               {slot.totalValueToPay != null && Number(slot.totalValueToPay) > 0 && (
                 <span>{formatMoneyDisplay(slot.totalValueToPay)}</span>
               )}
-              <Badge variant="outline" className="shrink-0">
-                {contractLabel}
-              </Badge>
             </div>
           </div>
 
