@@ -176,7 +176,7 @@ export function clientsService() {
             where,
             skip,
             take: pageSize,
-            orderBy: { createdAt: "desc" },
+            orderBy: { name: "asc" },
             include: {
               branch: { select: { id: true, name: true } },
               group: { select: { id: true, name: true } },

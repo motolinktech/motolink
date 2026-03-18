@@ -50,7 +50,7 @@ export function monitoringService() {
             ...(clientId && { id: clientId }),
             ...(groupId && { groupId }),
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { name: "asc" },
           include: monitoringClientInclude,
         });
 
@@ -137,7 +137,7 @@ export function monitoringService() {
             ...(clientId && { id: clientId }),
             ...(groupId && { groupId }),
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { name: "asc" },
           include: monitoringClientInclude,
         });
 
