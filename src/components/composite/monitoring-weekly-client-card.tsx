@@ -44,7 +44,7 @@ import {
   type WorkShiftSlotStatus,
 } from "@/constants/work-shift-slot-status";
 import { cn } from "@/lib/cn";
-import { compareMonitoringWorkShifts } from "@/modules/monitoring/monitoring-sort";
+import { compareMonitoringWorkShifts, countsForMonitoringSummary } from "@/modules/monitoring/monitoring-sort";
 import { copyWorkShiftSlotsAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { Text } from "../ui/text";
@@ -367,7 +367,7 @@ export function MonitoringWeeklyClientCard({
                           const planning = dayData.planned.find((p) => p.period.toUpperCase() === period);
                           return sum + (planning?.plannedCount ?? 0);
                         }, 0);
-                        const totalAssigned = dayData.workShifts.length;
+                        const totalAssigned = dayData.workShifts.filter(countsForMonitoringSummary).length;
 
                         return (
                           <div className="mb-2 text-center">

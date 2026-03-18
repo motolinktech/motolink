@@ -38,7 +38,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Spinner } from "@/components/ui/spinner";
 import { PAYMENT_TYPE_LABELS, PERIOD_TYPE_LABELS } from "@/constants/commercial-conditions";
 import { PLANNING_PERIOD_LABELS, type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
-import { compareMonitoringWorkShifts } from "@/modules/monitoring/monitoring-sort";
+import { compareMonitoringWorkShifts, countsForMonitoringSummary } from "@/modules/monitoring/monitoring-sort";
 import { copyWorkShiftSlotsAction, sendBulkInviteAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { MonitoringPlanningRow } from "./monitoring-planning-row";
@@ -256,7 +256,10 @@ export function MonitoringClientCard({
     .map((period) => {
       const planning = plannings.find((p) => p.period === period);
       const plannedCount = planning?.plannedCount ?? 0;
-      const filledCount = workShiftSlots.filter((s) => s.period.some((p) => p.toUpperCase() === period)).length;
+      const filledCount = workShiftSlots.filter(
+        (slot) =>
+          slot.period.some((slotPeriod) => slotPeriod.toUpperCase() === period) && countsForMonitoringSummary(slot),
+      ).length;
       return { period, plannedCount, filledCount };
     })
     .filter((s) => s.plannedCount > 0 || s.filledCount > 0);

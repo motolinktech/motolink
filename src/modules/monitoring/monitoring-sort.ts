@@ -29,6 +29,8 @@ interface SortableMonitoringWorkShift {
   deliveryman?: { name?: string | null } | null;
 }
 
+const SUMMARY_COUNTABLE_STATUSES = new Set(["INVITED", "CONFIRMED", "CHECKED_IN", "PENDING_COMPLETION", "COMPLETED"]);
+
 function getTimeSortValue(value: string | Date): number {
   const timestamp = new Date(value).getTime();
   if (Number.isNaN(timestamp)) {
@@ -88,4 +90,12 @@ export function compareMonitoringWorkShifts(a: SortableMonitoringWorkShift, b: S
   }
 
   return a.id.localeCompare(b.id, "pt-BR", { sensitivity: "base" });
+}
+
+export function countsForMonitoringSummary(slot: Pick<SortableMonitoringWorkShift, "status" | "deliveryman">): boolean {
+  if (slot.status === "OPEN") {
+    return Boolean(slot.deliveryman);
+  }
+
+  return SUMMARY_COUNTABLE_STATUSES.has(slot.status);
 }
