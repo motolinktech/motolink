@@ -21,6 +21,27 @@ import type {
 
 dayjs.extend(utc);
 
+const INVITE_TIME_ZONE = "America/Sao_Paulo";
+
+const inviteDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: INVITE_TIME_ZONE,
+});
+
+const inviteTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: INVITE_TIME_ZONE,
+});
+
+function formatInviteDate(date: Date) {
+  return inviteDateFormatter.format(date);
+}
+
+function formatInviteTime(date: Date) {
+  return inviteTimeFormatter.format(date);
+}
+
 function logPaymentRequestSyncHistory(sync: PaymentRequestSyncResult | null, userId: string) {
   if (!sync || sync.action === "UNCHANGED") return;
   historyTracesService()
@@ -810,9 +831,9 @@ export function workShiftSlotsService() {
               deliverymanName: deliveryman.name,
               clientName: slot.client.name,
               clientAddress,
-              shiftDate: dayjs.utc(slot.shiftDate).format("DD/MM/YYYY"),
-              startTime: dayjs(slot.startTime).format("HH:mm"),
-              endTime: dayjs(slot.endTime).format("HH:mm"),
+              shiftDate: formatInviteDate(slot.shiftDate),
+              startTime: formatInviteTime(slot.startTime),
+              endTime: formatInviteTime(slot.endTime),
               token,
             },
           })
@@ -916,9 +937,9 @@ export function workShiftSlotsService() {
                 deliverymanName: slotDeliveryman.name,
                 clientName: slot.client.name,
                 clientAddress,
-                shiftDate: dayjs.utc(slot.shiftDate).format("DD/MM/YYYY"),
-                startTime: dayjs(slot.startTime).format("HH:mm"),
-                endTime: dayjs(slot.endTime).format("HH:mm"),
+                shiftDate: formatInviteDate(slot.shiftDate),
+                startTime: formatInviteTime(slot.startTime),
+                endTime: formatInviteTime(slot.endTime),
                 token,
               },
             })
