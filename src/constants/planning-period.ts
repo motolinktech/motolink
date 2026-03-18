@@ -19,9 +19,11 @@ export function normalizePlanningPeriod(period: string): PlanningPeriod | null {
   switch (period) {
     case planningPeriodConst.DAYTIME:
     case "diurno":
+    case "daytime":
       return planningPeriodConst.DAYTIME;
     case planningPeriodConst.NIGHTTIME:
     case "noturno":
+    case "nighttime":
       return planningPeriodConst.NIGHTTIME;
     default:
       return null;
