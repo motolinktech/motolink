@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import dayjs from "dayjs";
 import { useAction } from "next-safe-action/hooks";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -11,6 +10,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { updateWorkShiftSlotTimesAction } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import { formatWorkShiftCheckTime } from "@/utils/format-work-shift-check-time";
 import { applyTimeMask } from "@/utils/masks/time-mask";
 
 const formSchema = z.object({
@@ -28,8 +28,7 @@ interface WorkShiftSlotTimesFormProps {
 }
 
 function parseTimeDefault(val: string | null | undefined): string {
-  if (!val) return "";
-  return dayjs(val).format("HH:mm");
+  return formatWorkShiftCheckTime(val);
 }
 
 export function WorkShiftSlotTimesForm({ slotId, checkInAt, checkOutAt, onSuccess }: WorkShiftSlotTimesFormProps) {

@@ -60,6 +60,7 @@ import {
   toggleTrackingConnectedAction,
   updateWorkShiftSlotStatusAction,
 } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import { formatWorkShiftCheckTime } from "@/utils/format-work-shift-check-time";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 import { MonitoringWorkShiftDetailSheet } from "./monitoring-work-shift-detail-sheet";
 
@@ -185,6 +186,8 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
     return dayjs(val).format("HH:mm");
   };
 
+  const formatCheckTime = (val: string | null | undefined) => formatWorkShiftCheckTime(val);
+
   const handleBanDeliveryman = async () => {
     if (!slot.deliveryman) return;
 
@@ -282,7 +285,7 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
             <p className="font-medium">
               {isAbsent || isUnanswered || isCancelled
                 ? "--:-- - --:--"
-                : `${formatTime(slot.checkInAt)} - ${formatTime(slot.checkOutAt)}`}
+                : `${formatCheckTime(slot.checkInAt)} - ${formatCheckTime(slot.checkOutAt)}`}
             </p>
           </div>
 

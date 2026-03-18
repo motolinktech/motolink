@@ -52,6 +52,7 @@ import {
   createDiscountAction,
   updateWorkShiftSlotStatusAction,
 } from "@/modules/work-shift-slots/work-shift-slots-actions";
+import { formatWorkShiftCheckTime } from "@/utils/format-work-shift-check-time";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 
 export interface DetailSheetSlot {
@@ -126,6 +127,10 @@ function getInitials(name: string): string {
 function formatTime(val: string | null | undefined): string {
   if (!val) return "--:--";
   return dayjs(val).format("HH:mm");
+}
+
+function formatCheckTime(val: string | null | undefined): string {
+  return formatWorkShiftCheckTime(val, "--:--");
 }
 
 function isNonZero(val: unknown): boolean {
@@ -405,7 +410,7 @@ export function MonitoringWorkShiftDetailSheet({
               <div>
                 <p className="text-xs text-muted-foreground">Horário real</p>
                 <p className="text-sm font-medium">
-                  {formatTime(slot.checkInAt)} - {formatTime(slot.checkOutAt)}
+                  {formatCheckTime(slot.checkInAt)} - {formatCheckTime(slot.checkOutAt)}
                 </p>
               </div>
             </div>

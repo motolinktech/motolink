@@ -4,6 +4,7 @@ import { ContractTypeOptions } from "@/constants/contract-type";
 import { PAYMENT_REQUEST_STATUS_LABELS } from "@/constants/payment-request-status";
 import { PLANNING_PERIOD_LABELS } from "@/constants/planning-period";
 import { WORK_SHIFT_SLOT_STATUS_LABELS } from "@/constants/work-shift-slot-status";
+import { formatWorkShiftCheckTime } from "@/utils/format-work-shift-check-time";
 import { formatMoneyDisplay } from "@/utils/masks/money-mask";
 
 const EXCLUDED_FIELDS = new Set([
@@ -68,7 +69,8 @@ const MONEY_FIELDS = new Set([
   "deliverymenPaymentValue",
 ]);
 
-const TIME_FIELDS = new Set(["startTime", "endTime", "checkInAt", "checkOutAt"]);
+const TIME_FIELDS = new Set(["startTime", "endTime"]);
+const CHECK_TIME_FIELDS = new Set(["checkInAt", "checkOutAt"]);
 
 const ENUM_FORMATTERS: Record<string, Record<string, string>> = {
   status: { ...WORK_SHIFT_SLOT_STATUS_LABELS, ...PAYMENT_REQUEST_STATUS_LABELS },
@@ -100,6 +102,10 @@ function formatValue(field: string, val: unknown): string {
   if (TIME_FIELDS.has(field)) {
     const parsed = dayjs(String(val));
     return parsed.isValid() ? parsed.format("HH:mm") : String(val);
+  }
+
+  if (CHECK_TIME_FIELDS.has(field)) {
+    return formatWorkShiftCheckTime(val as string | Date, String(val));
   }
 
   if (typeof val === "boolean") return val ? "Sim" : "Não";

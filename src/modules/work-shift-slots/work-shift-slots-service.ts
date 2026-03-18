@@ -460,7 +460,13 @@ export function workShiftSlotsService() {
 
         const parseTime = (value: string | null): Date | null => {
           if (!value) return null;
-          return new Date(`1970-01-01T${value}:00.000Z`);
+
+          const [hours, minutes] = value.split(":").map(Number);
+          if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
+            return null;
+          }
+
+          return dayjs(existing.shiftDate).hour(hours).minute(minutes).second(0).millisecond(0).toDate();
         };
 
         const checkInAt = parseTime(input.checkInAt);
