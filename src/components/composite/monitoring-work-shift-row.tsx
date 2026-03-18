@@ -223,7 +223,7 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
   const isCurrentShiftDate = shiftDate === getCurrentDateKeyInSaoPaulo();
   const isBannedLocked = isBannedAssigned && !isCurrentShiftDate;
   const rowStatusColor = isOpenWithoutDeliveryman
-    ? "bg-red-100 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-900/70"
+    ? "bg-red-100 text-red-700 ring-1 dark:bg-red-950/50 dark:text-red-200"
     : statusColor;
 
   const formatTime = (val: string | null | undefined) => formatWorkShiftCheckTime(val, "--:--");
@@ -265,9 +265,9 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
     <>
       <div
         className={cn(
-          "flex items-center rounded-md border border-transparent border-l-4 px-4 py-3 transition-colors",
+          "flex items-center rounded-md border-transparent border-l-4 px-4 py-3 transition-colors",
           isOpenWithoutDeliveryman
-            ? "border-red-200 bg-gradient-to-r from-red-50 via-rose-50/80 to-white shadow-[0_10px_24px_-18px_rgba(185,28,28,0.45)] dark:border-red-900/60 dark:from-red-950/40 dark:via-rose-950/20 dark:to-background"
+            ? "bg-gradient-to-r from-red-50 via-rose-50/80 to-white dark:from-red-950/40 dark:via-rose-950/20 dark:to-background"
             : "bg-muted/30",
           isOpenWithoutDeliveryman
             ? "border-l-red-500"
