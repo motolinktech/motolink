@@ -113,6 +113,19 @@ type PendingAction =
   | "toggle-tracking"
   | "ban-deliveryman";
 
+const WORK_SHIFT_SLOT_ROW_BORDER_COLORS: Record<WorkShiftSlotStatus, string> = {
+  OPEN: "border-l-slate-300",
+  INVITED: "border-l-sky-400",
+  CONFIRMED: "border-l-emerald-400",
+  CHECKED_IN: "border-l-cyan-400",
+  PENDING_COMPLETION: "border-l-amber-400",
+  COMPLETED: "border-l-purple-400",
+  ABSENT: "border-l-orange-400",
+  CANCELLED: "border-l-zinc-400",
+  REJECTED: "border-l-red-400",
+  UNANSWERED: "border-l-rose-400",
+};
+
 export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: MonitoringWorkShiftRowProps) {
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editTimesSheetOpen, setEditTimesSheetOpen] = useState(false);
@@ -135,7 +148,7 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
 
   const status = slot.status as WorkShiftSlotStatus;
   const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
-  const statusColor = WORK_SHIFT_SLOT_STATUS_COLORS[status] ?? "bg-gray-100 text-gray-800";
+  const statusColor = WORK_SHIFT_SLOT_STATUS_COLORS[status] ?? "bg-slate-100 text-slate-800";
   const contractLabel = ContractTypeOptions.find((o) => o.value === slot.contractType)?.label ?? slot.contractType;
   const nextTransitions = workShiftSlotStatusTransitions[status] ?? [];
   const primaryTransition = nextTransitions[0] as WorkShiftSlotStatus | undefined;
@@ -261,13 +274,9 @@ export function MonitoringWorkShiftRow({ slot, client, shiftDate, onRefresh }: M
       <div
         className={cn(
           "flex items-center rounded-md border-l-4 bg-muted/30 px-4 py-3",
-          isAbsent
-            ? "border-l-orange-400"
-            : isUnanswered || isCancelled
-              ? "border-l-gray-400"
-              : status === "OPEN" && !slot.deliveryman
-                ? "border-l-yellow-400"
-                : "border-l-primary",
+          status === "OPEN" && !slot.deliveryman
+            ? "border-l-amber-400"
+            : (WORK_SHIFT_SLOT_ROW_BORDER_COLORS[status] ?? "border-l-slate-300"),
         )}
       >
         <div className="flex items-center gap-4">
