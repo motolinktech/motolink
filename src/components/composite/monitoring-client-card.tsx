@@ -264,37 +264,25 @@ export function MonitoringClientCard({
     })
     .filter((s) => s.plannedCount > 0 || s.filledCount > 0);
 
-  const renderedSlotIds = new Set<string>();
+  const allRows: React.ReactNode[] = workShiftSlots
+    .toSorted(compareMonitoringWorkShifts)
+    .map((slot) => (
+      <MonitoringWorkShiftRow key={slot.id} slot={slot} client={client} shiftDate={shiftDate} onRefresh={onRefresh} />
+    ));
 
-  const renderPeriodRows = (period: PlanningPeriod) => {
+  for (const period of periods) {
     const planning = plannings.find((p) => p.period === period);
     const plannedCount = planning?.plannedCount ?? 0;
-    const periodSlots = workShiftSlots.filter((s) => s.period.some((p) => p.toUpperCase() === period));
-    const sortedSlots = periodSlots.toSorted(compareMonitoringWorkShifts);
-    const periodLabel = PLANNING_PERIOD_LABELS[period];
-
-    const rows: React.ReactNode[] = [];
-
-    for (const slot of sortedSlots) {
-      if (renderedSlotIds.has(slot.id)) continue;
-      renderedSlotIds.add(slot.id);
-      rows.push(
-        <MonitoringWorkShiftRow
-          key={slot.id}
-          slot={slot}
-          client={client}
-          shiftDate={shiftDate}
-          onRefresh={onRefresh}
-        />,
-      );
-    }
-
+    const periodSlots = workShiftSlots.filter((slot) =>
+      slot.period.some((slotPeriod) => slotPeriod.toUpperCase() === period),
+    );
     const vacantCount = Math.max(0, plannedCount - periodSlots.length);
+
     for (let i = 0; i < vacantCount; i++) {
-      rows.push(
+      allRows.push(
         <MonitoringPlanningRow
           key={`vacant-${period}-${i}`}
-          periodLabel={periodLabel}
+          periodLabel={PLANNING_PERIOD_LABELS[period]}
           period={period}
           client={client}
           shiftDate={shiftDate}
@@ -302,11 +290,7 @@ export function MonitoringClientCard({
         />,
       );
     }
-
-    return rows;
-  };
-
-  const allRows = periods.flatMap(renderPeriodRows);
+  }
 
   return (
     <>

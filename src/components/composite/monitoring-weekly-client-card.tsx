@@ -385,56 +385,50 @@ export function MonitoringWeeklyClientCard({
 
                       <div className="flex flex-wrap items-center gap-1">
                         {(() => {
-                          const renderedSlotIds = new Set<string>();
-                          return periods.flatMap((period) => {
+                          const items = dayData.workShifts.toSorted(compareMonitoringWorkShifts).map((slot) => {
+                            const status = slot.status as WorkShiftSlotStatus;
+                            const statusColor = WORK_SHIFT_SLOT_STATUS_COLORS[status] ?? "";
+                            const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
+                            const name = slot.deliveryman?.name ?? "Sem entregador";
+                            const initials = slot.deliveryman ? getInitials(slot.deliveryman.name) : "??";
+                            const slotPeriodLabels = slot.period
+                              .map((p) => PLANNING_PERIOD_LABELS[p.toUpperCase() as PlanningPeriod])
+                              .filter(Boolean)
+                              .join(" / ");
+
+                            return (
+                              <Tooltip key={slot.id}>
+                                <TooltipTrigger asChild>
+                                  <button type="button" onClick={() => handleSlotClick(slot, dateStr)}>
+                                    <Avatar size="default">
+                                      <AvatarFallback className={cn("text-[10px]", statusColor)}>
+                                        {initials}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <Text variant="small" className="text-center">
+                                    <span>{name}</span>
+                                    <br />
+                                    <span className="text-muted">
+                                      {slotPeriodLabels} - {statusLabel}
+                                      <br />
+                                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                                    </span>
+                                  </Text>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          });
+
+                          for (const period of periods) {
                             const planning = dayData.planned.find((p) => p.period.toUpperCase() === period);
                             const plannedCount = planning?.plannedCount ?? 0;
-                            const periodSlots = dayData.workShifts
-                              .filter((s) => s.period.some((p) => p.toUpperCase() === period))
-                              .toSorted(compareMonitoringWorkShifts);
+                            const periodSlots = dayData.workShifts.filter((slot) =>
+                              slot.period.some((slotPeriod) => slotPeriod.toUpperCase() === period),
+                            );
                             const vacantCount = Math.max(0, plannedCount - periodSlots.length);
-
-                            const items: React.ReactNode[] = [];
-
-                            for (const slot of periodSlots) {
-                              if (renderedSlotIds.has(slot.id)) continue;
-                              renderedSlotIds.add(slot.id);
-
-                              const status = slot.status as WorkShiftSlotStatus;
-                              const statusColor = WORK_SHIFT_SLOT_STATUS_COLORS[status] ?? "";
-                              const statusLabel = WORK_SHIFT_SLOT_STATUS_LABELS[status] ?? slot.status;
-                              const name = slot.deliveryman?.name ?? "Sem entregador";
-                              const initials = slot.deliveryman ? getInitials(slot.deliveryman.name) : "??";
-                              const slotPeriodLabels = slot.period
-                                .map((p) => PLANNING_PERIOD_LABELS[p.toUpperCase() as PlanningPeriod])
-                                .filter(Boolean)
-                                .join(" / ");
-
-                              items.push(
-                                <Tooltip key={slot.id}>
-                                  <TooltipTrigger asChild>
-                                    <button type="button" onClick={() => handleSlotClick(slot, dateStr)}>
-                                      <Avatar size="default">
-                                        <AvatarFallback className={cn("text-[10px]", statusColor)}>
-                                          {initials}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <Text variant="small" className="text-center">
-                                      <span>{name}</span>
-                                      <br />
-                                      <span className="text-muted">
-                                        {slotPeriodLabels} - {statusLabel}
-                                        <br />
-                                        {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                                      </span>
-                                    </Text>
-                                  </TooltipContent>
-                                </Tooltip>,
-                              );
-                            }
 
                             for (let idx = 0; idx < vacantCount; idx++) {
                               items.push(
@@ -452,9 +446,9 @@ export function MonitoringWeeklyClientCard({
                                 </Tooltip>,
                               );
                             }
+                          }
 
-                            return items;
-                          });
+                          return items;
                         })()}
 
                         {!isPast && !copySource && (
