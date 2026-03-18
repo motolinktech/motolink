@@ -284,7 +284,7 @@ export function MonitoringDailyContent({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
           <SearchSelect
             value={selectedGroupId ?? null}
             onValueChange={handleGroupChange}
@@ -354,7 +354,7 @@ export function MonitoringDailyContent({
 
         <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className={cn("w-[220px] justify-start font-normal")}>
+            <Button variant="outline" size="sm" className={cn("w-full sm:w-[220px] justify-start font-normal")}>
               <CalendarIcon className="mr-2 size-4" />
               {selectedDate.format("DD/MM/YYYY")}
             </Button>

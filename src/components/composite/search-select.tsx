@@ -42,7 +42,7 @@ export function SearchSelect({
         if (isOpen) onOpen?.();
       }}
     >
-      <div className={cn("relative w-56", className)}>
+      <div className={cn("relative w-full sm:w-56", className)}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"

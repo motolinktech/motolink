@@ -161,7 +161,7 @@ export function PlanningWeekView({
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center">
           <SearchSelect
             value={selectedGroupId ?? null}
             onValueChange={handleGroupChange}
