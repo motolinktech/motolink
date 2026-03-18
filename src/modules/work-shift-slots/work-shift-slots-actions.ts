@@ -59,7 +59,7 @@ export const updateWorkShiftSlotStatusAction = safeAction
 
     revalidatePath("/operacional/monitoramento/diario");
     revalidatePath("/operacional/monitoramento/semanal");
-    return { success: true };
+    return { success: true, clonedSlotId: result.value.clonedSlot?.id ?? null };
   });
 
 export const updateWorkShiftSlotTimesAction = safeAction

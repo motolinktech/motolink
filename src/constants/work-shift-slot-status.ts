@@ -32,7 +32,7 @@ export const workShiftSlotStatusTransitions: Record<WorkShiftSlotStatus, WorkShi
   CONFIRMED: ["CHECKED_IN", "ABSENT", "CANCELLED"],
   CHECKED_IN: ["PENDING_COMPLETION", "ABSENT"],
   PENDING_COMPLETION: ["COMPLETED"],
-  REJECTED: ["OPEN"],
+  REJECTED: [],
   COMPLETED: [],
   ABSENT: [],
   CANCELLED: [],
@@ -58,7 +58,6 @@ export const WORK_SHIFT_SLOT_PRIMARY_ACTION_LABELS: Partial<Record<WorkShiftSlot
   CONFIRMED: "Check in",
   CHECKED_IN: "Check out",
   PENDING_COMPLETION: "Concluir turno",
-  REJECTED: "Reabrir turno",
 };
 
 export const WORK_SHIFT_SLOT_STATUS_COLORS: Record<WorkShiftSlotStatus, string> = {

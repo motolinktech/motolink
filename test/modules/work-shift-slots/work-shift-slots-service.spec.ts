@@ -741,6 +741,163 @@ describe("Work Shift Slots Service", () => {
         status: { old: null, new: "NEW" },
       });
     });
+
+    describe("auto-clone on terminal status", () => {
+      const CLONE_TRIGGER_STATUSES = [
+        { from: "CONFIRMED", to: "ABSENT", absentReason: "Motivo do teste" },
+        { from: "CONFIRMED", to: "CANCELLED" },
+        { from: "INVITED", to: "REJECTED" },
+        { from: "INVITED", to: "UNANSWERED" },
+      ] as const;
+
+      for (const { from, to, ...rest } of CLONE_TRIGGER_STATUSES) {
+        it(`should create an OPEN clone when status changes to ${to}`, async () => {
+          const branch = await createTestBranch();
+          const client = await createTestClient({ branchId: branch.id });
+          const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+          const slot = await createTestWorkShiftSlot({
+            clientId: client.id,
+            deliverymanId: deliveryman.id,
+            status: from,
+          });
+
+          await db.workShiftSlot.update({
+            where: { id: slot.id },
+            data: { additionalTax: 15, rainTax: 5, deliverymanAmountDay: 100 },
+          });
+
+          const absentReason = "absentReason" in rest ? rest.absentReason : undefined;
+          const result = await service.updateStatus(slot.id, to, LOGGED_USER_ID, absentReason);
+
+          expect(result.isOk()).toBe(true);
+          const value = result._unsafeUnwrap();
+          expect(value.status).toBe(to);
+          expect(value.clonedSlot).not.toBeNull();
+          expect(value.clonedSlot!.status).toBe("OPEN");
+          expect(value.clonedSlot!.deliverymanId).toBeNull();
+          expect(value.clonedSlot!.id).not.toBe(slot.id);
+
+          // Verify clone scheduling fields match original
+          expect(value.clonedSlot!.clientId).toBe(client.id);
+          expect(value.clonedSlot!.shiftDate).toEqual(slot.shiftDate);
+          expect(value.clonedSlot!.startTime).toEqual(slot.startTime);
+          expect(value.clonedSlot!.endTime).toEqual(slot.endTime);
+          expect(value.clonedSlot!.contractType).toBe(slot.contractType);
+          expect(value.clonedSlot!.period).toEqual(slot.period);
+
+          // Verify clone financial fields were copied
+          expect(Number(value.clonedSlot!.additionalTax)).toBe(15);
+          expect(Number(value.clonedSlot!.rainTax)).toBe(5);
+          expect(Number(value.clonedSlot!.deliverymanAmountDay)).toBe(100);
+        });
+      }
+
+      it("should reset operational fields on the clone", async () => {
+        const branch = await createTestBranch();
+        const client = await createTestClient({ branchId: branch.id });
+        const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+        const slot = await createTestWorkShiftSlot({
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "CONFIRMED",
+        });
+
+        await db.workShiftSlot.update({
+          where: { id: slot.id },
+          data: {
+            checkInAt: new Date(),
+            trackingConnected: true,
+            trackingConnectedAt: new Date(),
+            logs: [{ event: "test" }],
+            absentReason: "previous reason",
+            inviteSentAt: new Date(),
+            inviteToken: crypto.randomUUID(),
+            inviteExpiresAt: new Date(),
+          },
+        });
+
+        const result = await service.updateStatus(slot.id, "ABSENT", LOGGED_USER_ID, "Motivo teste");
+
+        expect(result.isOk()).toBe(true);
+        const clone = result._unsafeUnwrap().clonedSlot!;
+
+        expect(clone.checkInAt).toBeNull();
+        expect(clone.checkOutAt).toBeNull();
+        expect(clone.trackingConnected).toBe(false);
+        expect(clone.trackingConnectedAt).toBeNull();
+        expect(clone.logs).toEqual([]);
+        expect(clone.absentReason).toBeNull();
+        expect(clone.inviteSentAt).toBeNull();
+        expect(clone.inviteToken).toBeNull();
+        expect(clone.inviteExpiresAt).toBeNull();
+      });
+
+      it("should keep the original slot unchanged at terminal status", async () => {
+        const branch = await createTestBranch();
+        const client = await createTestClient({ branchId: branch.id });
+        const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+        const slot = await createTestWorkShiftSlot({
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "CONFIRMED",
+        });
+
+        const result = await service.updateStatus(slot.id, "CANCELLED", LOGGED_USER_ID);
+        expect(result.isOk()).toBe(true);
+
+        const original = await db.workShiftSlot.findUnique({ where: { id: slot.id } });
+        expect(original!.status).toBe("CANCELLED");
+        expect(original!.deliverymanId).toBe(deliveryman.id);
+      });
+
+      it("should log UPDATED on original and CREATED on clone", async () => {
+        const branch = await createTestBranch();
+        const client = await createTestClient({ branchId: branch.id });
+        const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+        await createActorUser();
+        const slot = await createTestWorkShiftSlot({
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "CONFIRMED",
+        });
+
+        const result = await service.updateStatus(slot.id, "CANCELLED", LOGGED_USER_ID);
+        expect(result.isOk()).toBe(true);
+        const cloneId = result._unsafeUnwrap().clonedSlot!.id;
+
+        const updateTrace = await findHistoryTraceOrThrow({
+          entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+          entityId: slot.id,
+          action: historyTraceActionConst.UPDATED,
+        });
+        expect(updateTrace).toBeDefined();
+
+        const createTrace = await findHistoryTraceOrThrow({
+          entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+          entityId: cloneId,
+          action: historyTraceActionConst.CREATED,
+        });
+        expect(createTrace).toBeDefined();
+      });
+
+      it("should NOT create a clone when status changes to COMPLETED", async () => {
+        const branch = await createTestBranch();
+        const client = await createTestClient({ branchId: branch.id });
+        const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+        const slot = await createTestWorkShiftSlot({
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "PENDING_COMPLETION",
+        });
+
+        const result = await service.updateStatus(slot.id, "COMPLETED", LOGGED_USER_ID);
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap().clonedSlot).toBeNull();
+
+        const allSlots = await db.workShiftSlot.findMany({ where: { clientId: client.id } });
+        expect(allSlots).toHaveLength(1);
+      });
+    });
   });
 
   describe(".updateTimes", () => {

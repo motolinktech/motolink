@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { errAsync, okAsync } from "neverthrow";
-import type { Prisma } from "@/../generated/prisma/client";
+import type { Prisma, WorkShiftSlot } from "@/../generated/prisma/client";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
 import { type WorkShiftSlotStatus, workShiftSlotStatusTransitions } from "@/constants/work-shift-slot-status";
 import { db } from "@/lib/database";
@@ -79,6 +79,7 @@ function validateAssignedDeliverymanForStatus(status: string, deliverymanId?: st
 }
 
 const TERMINAL_STATUSES = ["CANCELLED", "ABSENT", "REJECTED", "UNANSWERED"];
+const CLONE_TRIGGER_STATUSES = ["CANCELLED", "ABSENT", "REJECTED", "UNANSWERED"];
 
 function getTodayDateKey() {
   return getCurrentDateKeyInSaoPaulo();
@@ -128,6 +129,36 @@ function hasOverlapInList(
   endTime: Date,
 ): boolean {
   return intervals.some((i) => i.startTime < endTime && i.endTime > startTime);
+}
+
+function buildCloneData(source: WorkShiftSlot): Prisma.WorkShiftSlotUncheckedCreateInput {
+  return {
+    clientId: source.clientId,
+    contractType: source.contractType,
+    shiftDate: source.shiftDate,
+    startTime: source.startTime,
+    endTime: source.endTime,
+    period: source.period,
+    auditStatus: source.auditStatus,
+    deliverymanAmountDay: source.deliverymanAmountDay,
+    deliverymanAmountNight: source.deliverymanAmountNight,
+    deliverymanPaymentType: source.deliverymanPaymentType,
+    deliverymenPaymentValue: source.deliverymenPaymentValue,
+    paymentForm: source.paymentForm,
+    guaranteedQuantityDay: source.guaranteedQuantityDay,
+    guaranteedDayTax: source.guaranteedDayTax,
+    guaranteedQuantityNight: source.guaranteedQuantityNight,
+    guaranteedNightTax: source.guaranteedNightTax,
+    deliverymanPerDeliveryDay: source.deliverymanPerDeliveryDay,
+    deliverymanPerDeliveryNight: source.deliverymanPerDeliveryNight,
+    isWeekendRate: source.isWeekendRate,
+    additionalTax: source.additionalTax,
+    additionalTaxReason: source.additionalTaxReason,
+    rainTax: source.rainTax,
+    totalValueToPay: source.totalValueToPay,
+    status: "OPEN",
+    deliverymanId: null,
+  };
 }
 
 function toWorkShiftSlotCreateData(body: WorkShiftSlotMutateDTO): Prisma.WorkShiftSlotUncheckedCreateInput {
@@ -410,7 +441,11 @@ export function workShiftSlotsService() {
           data.checkOutAt = timeStringToDbTime(getCurrentTimeStringInSaoPaulo());
         }
 
-        const { slot: updated, paymentRequestSync } = await db.$transaction(async (tx) => {
+        const {
+          slot: updated,
+          paymentRequestSync,
+          clonedSlot,
+        } = await db.$transaction(async (tx) => {
           const nextSlot = await tx.workShiftSlot.update({ where: { id }, data, include });
 
           let sync: PaymentRequestSyncResult | null = null;
@@ -418,7 +453,12 @@ export function workShiftSlotsService() {
             sync = await syncPaymentRequestFromCompletedWorkShiftSlot(tx, nextSlot.id);
           }
 
-          return { slot: nextSlot, paymentRequestSync: sync };
+          let newSlot = null;
+          if (CLONE_TRIGGER_STATUSES.includes(status)) {
+            newSlot = await tx.workShiftSlot.create({ data: buildCloneData(existing), include });
+          }
+
+          return { slot: nextSlot, paymentRequestSync: sync, clonedSlot: newSlot };
         });
 
         historyTracesService()
@@ -432,9 +472,21 @@ export function workShiftSlotsService() {
           })
           .catch(() => {});
 
+        if (clonedSlot) {
+          historyTracesService()
+            .create({
+              userId: loggedUserId,
+              action: historyTraceActionConst.CREATED,
+              entityType: historyTraceEntityConst.WORK_SHIFT_SLOT,
+              entityId: clonedSlot.id,
+              newObject: clonedSlot,
+            })
+            .catch(() => {});
+        }
+
         logPaymentRequestSyncHistory(paymentRequestSync, loggedUserId);
 
-        return okAsync(convertDecimals(updated));
+        return okAsync({ ...convertDecimals(updated), clonedSlot: clonedSlot ? convertDecimals(clonedSlot) : null });
       } catch (error) {
         console.error("Error updating work shift slot status:", error);
         return errAsync({ reason: "Não foi possível atualizar o status do turno de trabalho", statusCode: 500 });
