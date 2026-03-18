@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { errAsync, okAsync } from "neverthrow";
 import type { Prisma, WorkShiftSlot } from "@/../generated/prisma/client";
+import { contractTypeConst } from "@/constants/contract-type";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
 import { type WorkShiftSlotStatus, workShiftSlotStatusTransitions } from "@/constants/work-shift-slot-status";
 import { db } from "@/lib/database";
@@ -1105,7 +1106,7 @@ export function workShiftSlotsService() {
 
         const slots = await db.workShiftSlot.findMany({
           where: { shiftDate: dateKeyToDbDate(shiftDate), client: { branchId } },
-          select: { status: true },
+          select: { status: true, contractType: true },
         });
 
         const countMap = new Map<string, number>();
@@ -1115,8 +1116,14 @@ export function workShiftSlotsService() {
 
         const byStatus = [...countMap.entries()].map(([status, count]) => ({ status, count }));
         const confirmedCount = slots.filter((s) => CONFIRMED_STATUSES.includes(s.status)).length;
+        const byContractType = {
+          freelancer: slots.filter((slot) => slot.contractType === contractTypeConst.FREELANCER).length,
+          independentCollaborator: slots.filter(
+            (slot) => slot.contractType === contractTypeConst.INDEPENDENT_COLLABORATOR,
+          ).length,
+        };
 
-        return okAsync({ byStatus, total: slots.length, confirmedCount });
+        return okAsync({ byStatus, total: slots.length, confirmedCount, byContractType });
       } catch (error) {
         console.error("Error fetching dashboard summary for work shift slots:", error);
         return errAsync({ reason: "Não foi possível buscar o resumo dos turnos", statusCode: 500 });

@@ -45,6 +45,7 @@ export const paymentRequestListQuerySchema = z.object({
   date: z.string().date().optional(),
   contractType: z.string().optional(),
   clientId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
 });
 
 export type PaymentRequestListQueryDTO = z.infer<typeof paymentRequestListQuerySchema>;

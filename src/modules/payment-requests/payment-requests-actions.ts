@@ -13,7 +13,9 @@ import { paymentRequestListQuerySchema, paymentRequestUpdateSchema } from "./pay
 export const listPaymentRequestsAction = safeAction
   .inputSchema(paymentRequestListQuerySchema)
   .action(async ({ parsedInput }) => {
-    const result = await paymentRequestsService().listAll(parsedInput);
+    const cookieStore = await cookies();
+    const branchId = cookieStore.get(cookieConst.SELECTED_BRANCH)?.value;
+    const result = await paymentRequestsService().listAll({ ...parsedInput, branchId });
 
     if (result.isErr()) {
       return { error: result.error.reason };
@@ -59,6 +61,7 @@ export const updatePaymentRequestAction = safeAction.inputSchema(updateInputSche
 
   revalidatePath("/financeiro/freelancer");
   revalidatePath("/financeiro/colaborador-independente");
+  revalidatePath("/dashboard");
   return { success: true };
 });
 
@@ -104,5 +107,6 @@ export const updatePaymentRequestStatusAction = safeAction
 
     revalidatePath("/financeiro/freelancer");
     revalidatePath("/financeiro/colaborador-independente");
+    revalidatePath("/dashboard");
     return { success: true };
   });

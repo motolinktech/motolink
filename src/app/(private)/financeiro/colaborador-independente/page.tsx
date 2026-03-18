@@ -1,7 +1,9 @@
 import dayjs from "dayjs";
+import { cookies } from "next/headers";
 import { AccessDenied } from "@/components/composite/access-denied";
 import { ContentHeader } from "@/components/composite/content-header";
 import { FinanceiroContent } from "@/components/composite/financeiro-content";
+import { cookieConst } from "@/constants/cookies";
 import { clientsService } from "@/modules/clients/clients-service";
 import { deliverymenService } from "@/modules/deliverymen/deliverymen-service";
 import { paymentRequestsService } from "@/modules/payment-requests/payment-requests-service";
@@ -29,6 +31,8 @@ export default async function ColaboradorIndependentePage({ searchParams }: Cola
   const status = params.status as PaymentRequestListQueryDTO["status"];
   const page = Math.max(1, Number(params.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(params.pageSize) || 10));
+  const cookieStore = await cookies();
+  const branchId = cookieStore.get(cookieConst.SELECTED_BRANCH)?.value;
 
   const [deliverymanResult, clientResult, listResult] = await Promise.all([
     deliverymanId ? deliverymenService().getById(deliverymanId) : Promise.resolve(null),
@@ -41,6 +45,7 @@ export default async function ColaboradorIndependentePage({ searchParams }: Cola
       status,
       date,
       contractType: "INDEPENDENT_COLLABORATOR",
+      branchId,
     }),
   ]);
 

@@ -110,4 +110,8 @@ export type WorkShiftSlotDashboardSummary = {
   byStatus: { status: string; count: number }[];
   total: number;
   confirmedCount: number;
+  byContractType: {
+    freelancer: number;
+    independentCollaborator: number;
+  };
 };

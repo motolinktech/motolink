@@ -35,6 +35,7 @@ export default async function FreelancerPage({ searchParams }: FreelancerPagePro
 
   const cookieStore = await cookies();
   const loggedUserId = cookieStore.get(cookieConst.USER_ID)?.value;
+  const branchId = cookieStore.get(cookieConst.SELECTED_BRANCH)?.value;
 
   const [deliverymanResult, clientResult, listResult, userResult] = await Promise.all([
     deliverymanId ? deliverymenService().getById(deliverymanId) : Promise.resolve(null),
@@ -47,6 +48,7 @@ export default async function FreelancerPage({ searchParams }: FreelancerPagePro
       status,
       date,
       contractType: "FREELANCER",
+      branchId,
     }),
     loggedUserId ? usersService().getById(loggedUserId) : Promise.resolve(null),
   ]);

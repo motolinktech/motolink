@@ -38,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { PAYMENT_TYPE_LABELS, PERIOD_TYPE_LABELS } from "@/constants/commercial-conditions";
+import { PAYMENT_TYPE_LABELS } from "@/constants/commercial-conditions";
 import { PLANNING_PERIOD_LABELS, type PlanningPeriod, planningPeriodConst } from "@/constants/planning-period";
 import {
   compareMonitoringWorkShifts,
@@ -237,25 +237,15 @@ export function MonitoringClientCard({
         icon: CreditCardIcon,
         label: `Pagamento: ${cc.paymentForm?.map((v) => PAYMENT_TYPE_LABELS[v] ?? v).join(", ")}`,
       });
-    if (isNonEmpty(cc.dailyPeriods))
-      conditions.push({
-        icon: SunIcon,
-        label: `Períodos diários: ${cc.dailyPeriods?.map((v) => PERIOD_TYPE_LABELS[v] ?? v).join(", ")}`,
-      });
-    if (isNonEmpty(cc.guaranteedPeriods))
-      conditions.push({
-        icon: MoonIcon,
-        label: `Períodos garantidos: ${cc.guaranteedPeriods?.map((v) => PERIOD_TYPE_LABELS[v] ?? v).join(", ")}`,
-      });
     if (isNonEmpty(cc.guaranteedDay) || isNonEmpty(cc.guaranteedNight))
       conditions.push({
         icon: BanknoteIcon,
         label: `Garantidos: Dia ${cc.guaranteedDay ?? 0} / Noite ${cc.guaranteedNight ?? 0}`,
       });
-    if (isNonEmpty(cc.clientDailyDay) || isNonEmpty(cc.deliverymanDailyDay))
+    if (isNonEmpty(cc.deliverymanDailyDay))
       conditions.push({
         icon: TruckIcon,
-        label: `Diária: Cliente ${formatMoneyDisplay(cc.clientDailyDay)} / Entregador ${formatMoneyDisplay(cc.deliverymanDailyDay)}`,
+        label: `Diária entregador: ${formatMoneyDisplay(cc.deliverymanDailyDay)}`,
       });
   }
 

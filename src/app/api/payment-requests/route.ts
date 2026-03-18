@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import z from "zod";
+import { cookieConst } from "@/constants/cookies";
 import { paymentRequestsService } from "@/modules/payment-requests/payment-requests-service";
 import { paymentRequestListQuerySchema } from "@/modules/payment-requests/payment-requests-types";
 import { verifySession } from "@/utils/verify-session";
@@ -9,8 +11,11 @@ export async function GET(request: NextRequest) {
   const auth = await verifySession();
   if (auth.error) return auth.error;
 
+  const cookieStore = await cookies();
+  const branchId = cookieStore.get(cookieConst.SELECTED_BRANCH)?.value;
+
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  const parsed = paymentRequestListQuerySchema.safeParse(params);
+  const parsed = paymentRequestListQuerySchema.safeParse({ ...params, branchId });
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Parâmetros inválidos", details: z.treeifyError(parsed.error) }, { status: 400 });

@@ -60,15 +60,17 @@ async function createTestDeliveryman(overrides: { name?: string; branchId?: stri
   });
 }
 
-async function createTestWorkShiftSlot(overrides: { clientId?: string; deliverymanId?: string } = {}) {
+async function createTestWorkShiftSlot(
+  overrides: { clientId?: string; deliverymanId?: string; shiftDate?: Date; contractType?: string } = {},
+) {
   const clientId = overrides.clientId ?? (await createTestClient()).id;
   return db.workShiftSlot.create({
     data: {
       clientId,
       deliverymanId: overrides.deliverymanId,
       status: "OPEN",
-      contractType: "CLT",
-      shiftDate: SHIFT_DATE,
+      contractType: overrides.contractType ?? "CLT",
+      shiftDate: overrides.shiftDate ?? SHIFT_DATE,
       startTime: START_TIME,
       endTime: END_TIME,
       auditStatus: "PENDING",
@@ -83,6 +85,8 @@ async function createTestPaymentRequest(
     amount?: number;
     discount?: number;
     additionalTax?: number;
+    additionalKm?: number;
+    deliverymanAdditionalKm?: number;
     status?: string;
   } = {},
 ) {
@@ -96,7 +100,8 @@ async function createTestPaymentRequest(
       amount: overrides.amount ?? 100,
       discount: overrides.discount ?? 0,
       additionalTax: overrides.additionalTax ?? 0,
-      deliverymanAdditionalKm: 0,
+      additionalKm: overrides.additionalKm ?? 0,
+      deliverymanAdditionalKm: overrides.deliverymanAdditionalKm ?? 0,
       status: overrides.status ?? "NEW",
     },
   });
@@ -379,6 +384,92 @@ describe("Payment Requests Service", () => {
       expect(result.isOk()).toBe(true);
       const { data } = result._unsafeUnwrap();
       expect(data).toHaveLength(1);
+    });
+
+    it("should filter by branchId", async () => {
+      const branchA = await createTestBranch({ name: "Branch A" });
+      const branchB = await createTestBranch({ name: "Branch B" });
+
+      const clientA = await createTestClient({ branchId: branchA.id, name: "Client A" });
+      const clientB = await createTestClient({ branchId: branchB.id, name: "Client B" });
+      const deliverymanA = await createTestDeliveryman({ branchId: branchA.id, name: "Deliveryman A" });
+      const deliverymanB = await createTestDeliveryman({ branchId: branchB.id, name: "Deliveryman B" });
+
+      const slotA = await createTestWorkShiftSlot({ clientId: clientA.id, deliverymanId: deliverymanA.id });
+      const slotB = await createTestWorkShiftSlot({ clientId: clientB.id, deliverymanId: deliverymanB.id });
+
+      await createTestPaymentRequest({ workShiftSlotId: slotA.id, deliverymanId: deliverymanA.id });
+      await createTestPaymentRequest({ workShiftSlotId: slotB.id, deliverymanId: deliverymanB.id });
+
+      const result = await service.listAll({ page: 1, pageSize: 10, branchId: branchA.id });
+
+      expect(result.isOk()).toBe(true);
+      const { data, pagination } = result._unsafeUnwrap();
+      expect(data).toHaveLength(1);
+      expect(pagination.total).toBe(1);
+      expect(data[0]?.workShiftSlot?.client?.name).toBe("Client A");
+    });
+  });
+
+  describe(".getDashboardSummary", () => {
+    it("should summarize net payable totals scoped by branch and date", async () => {
+      const branchA = await createTestBranch({ name: "Branch A" });
+      const branchB = await createTestBranch({ name: "Branch B" });
+
+      const clientA = await createTestClient({ branchId: branchA.id, name: "Client A" });
+      const clientB = await createTestClient({ branchId: branchB.id, name: "Client B" });
+      const deliverymanA = await createTestDeliveryman({ branchId: branchA.id, name: "Deliveryman A" });
+      const deliverymanB = await createTestDeliveryman({ branchId: branchB.id, name: "Deliveryman B" });
+
+      const slotA1 = await createTestWorkShiftSlot({ clientId: clientA.id, deliverymanId: deliverymanA.id });
+      const slotA2 = await createTestWorkShiftSlot({ clientId: clientA.id, deliverymanId: deliverymanA.id });
+      const slotB = await createTestWorkShiftSlot({ clientId: clientB.id, deliverymanId: deliverymanB.id });
+      const slotOtherDate = await createTestWorkShiftSlot({
+        clientId: clientA.id,
+        deliverymanId: deliverymanA.id,
+        shiftDate: new Date("2099-06-16"),
+      });
+
+      await createTestPaymentRequest({
+        workShiftSlotId: slotA1.id,
+        deliverymanId: deliverymanA.id,
+        amount: 100,
+        discount: 10,
+        additionalTax: 5,
+        additionalKm: 2,
+        deliverymanAdditionalKm: 3,
+        status: "NEW",
+      });
+      await createTestPaymentRequest({
+        workShiftSlotId: slotA2.id,
+        deliverymanId: deliverymanA.id,
+        amount: 50,
+        status: "APPROVED",
+      });
+      await createTestPaymentRequest({
+        workShiftSlotId: slotB.id,
+        deliverymanId: deliverymanB.id,
+        amount: 999,
+        status: "NEW",
+      });
+      await createTestPaymentRequest({
+        workShiftSlotId: slotOtherDate.id,
+        deliverymanId: deliverymanA.id,
+        amount: 888,
+        status: "NEW",
+      });
+
+      const result = await service.getDashboardSummary("2099-06-15", branchA.id);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        byStatus: expect.arrayContaining([
+          { status: "NEW", count: 1, amount: 101 },
+          { status: "APPROVED", count: 1, amount: 50 },
+        ]),
+        totalAmount: 151,
+        pendingCount: 1,
+      });
     });
   });
 });

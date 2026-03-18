@@ -103,6 +103,7 @@ async function createTestWorkShiftSlot(
     clientId?: string;
     deliverymanId?: string;
     status?: string;
+    contractType?: string;
     shiftDate?: Date;
     startTime?: Date;
     endTime?: Date;
@@ -114,7 +115,7 @@ async function createTestWorkShiftSlot(
       clientId,
       deliverymanId: overrides.deliverymanId,
       status: overrides.status ?? "OPEN",
-      contractType: "CLT",
+      contractType: overrides.contractType ?? "CLT",
       shiftDate: overrides.shiftDate ?? SHIFT_DATE,
       startTime: overrides.startTime ?? START_TIME,
       endTime: overrides.endTime ?? END_TIME,
@@ -313,6 +314,49 @@ describe("Work Shift Slots Service", () => {
         const { data } = result._unsafeUnwrap();
         expect(data).toHaveLength(1);
         expect(data[0].client.name).toBe("Alpha Store");
+      });
+    });
+
+    describe(".getDashboardSummary", () => {
+      it("should return totals by contract type scoped by branch and date", async () => {
+        const branchA = await createTestBranch({ name: "Branch A" });
+        const branchB = await createTestBranch({ name: "Branch B" });
+        const clientA = await createTestClient({ branchId: branchA.id, name: "Client A" });
+        const clientB = await createTestClient({ branchId: branchB.id, name: "Client B" });
+
+        await createTestWorkShiftSlot({
+          clientId: clientA.id,
+          contractType: "FREELANCER",
+          shiftDate: dateKeyToDbDate("2099-06-15"),
+        });
+        await createTestWorkShiftSlot({
+          clientId: clientA.id,
+          contractType: "FREELANCER",
+          shiftDate: dateKeyToDbDate("2099-06-15"),
+        });
+        await createTestWorkShiftSlot({
+          clientId: clientA.id,
+          contractType: "INDEPENDENT_COLLABORATOR",
+          shiftDate: dateKeyToDbDate("2099-06-15"),
+        });
+        await createTestWorkShiftSlot({
+          clientId: clientB.id,
+          contractType: "INDEPENDENT_COLLABORATOR",
+          shiftDate: dateKeyToDbDate("2099-06-15"),
+        });
+        await createTestWorkShiftSlot({
+          clientId: clientA.id,
+          contractType: "FREELANCER",
+          shiftDate: dateKeyToDbDate("2099-06-16"),
+        });
+
+        const result = await service.getDashboardSummary("2099-06-15", branchA.id);
+
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap().byContractType).toEqual({
+          freelancer: 2,
+          independentCollaborator: 1,
+        });
       });
     });
 

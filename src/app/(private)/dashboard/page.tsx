@@ -36,6 +36,30 @@ function getFirstName(fullName: string): string {
   return fullName.split(" ")[0] ?? fullName;
 }
 
+const WORK_SHIFT_STATUS_FLOW: WorkShiftSlotStatus[] = [
+  "OPEN",
+  "INVITED",
+  "CONFIRMED",
+  "CHECKED_IN",
+  "PENDING_COMPLETION",
+  "COMPLETED",
+  "ABSENT",
+  "CANCELLED",
+  "REJECTED",
+  "UNANSWERED",
+];
+
+function sortWorkShiftSummaryByFlow<T extends { status: string }>(rows: T[]): T[] {
+  const statusOrder = new Map(WORK_SHIFT_STATUS_FLOW.map((status, index) => [status, index]));
+
+  return [...rows].sort((a, b) => {
+    const aOrder = statusOrder.get(a.status as WorkShiftSlotStatus) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = statusOrder.get(b.status as WorkShiftSlotStatus) ?? Number.MAX_SAFE_INTEGER;
+
+    return aOrder - bOrder;
+  });
+}
+
 // --- Page ---
 
 export default async function DashboardPage() {
@@ -57,22 +81,33 @@ export default async function DashboardPage() {
 
   const userName = getFirstName(userResult.value.name);
 
-  const shiftSummary = shiftResult?.isOk() ? shiftResult.value : { byStatus: [], total: 0, confirmedCount: 0 };
+  const shiftSummary = shiftResult?.isOk()
+    ? shiftResult.value
+    : {
+        byStatus: [],
+        total: 0,
+        confirmedCount: 0,
+        byContractType: {
+          freelancer: 0,
+          independentCollaborator: 0,
+        },
+      };
   const financialSummary = financialResult?.isOk()
     ? financialResult.value
     : { byStatus: [], totalAmount: 0, pendingCount: 0 };
+  const orderedShiftSummary = sortWorkShiftSummaryByFlow(shiftSummary.byStatus);
 
   const STAT_CARDS = [
     {
-      label: "Turnos hoje",
-      value: String(shiftSummary.total),
+      label: "Freelancer hoje",
+      value: String(shiftSummary.byContractType.freelancer),
       icon: CalendarDays,
       gradient: "from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900",
       text: "text-blue-700 dark:text-blue-300",
     },
     {
-      label: "Confirmados",
-      value: String(shiftSummary.confirmedCount),
+      label: "Colab. independente",
+      value: String(shiftSummary.byContractType.independentCollaborator),
       icon: CheckCircle,
       gradient: "from-green-50 to-green-100 dark:from-green-950 dark:to-green-900",
       text: "text-green-700 dark:text-green-300",
@@ -131,7 +166,7 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {shiftSummary.byStatus.map((row) => (
+            {orderedShiftSummary.map((row) => (
               <div key={row.status} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Badge className={cn(WORK_SHIFT_SLOT_STATUS_COLORS[row.status as WorkShiftSlotStatus])}>

@@ -36,6 +36,21 @@ function calculateOperationalAmount(slot: CompletedSlotForPaymentRequest) {
   return baseAmount + Number(slot.additionalTax) + Number(slot.rainTax) - activeDiscounts;
 }
 
+function calculateNetPaymentRequestAmount(paymentRequest: {
+  amount: Prisma.Decimal | number;
+  discount: Prisma.Decimal | number;
+  additionalTax: Prisma.Decimal | number;
+  additionalKm: number;
+  deliverymanAdditionalKm: Prisma.Decimal | number;
+}) {
+  return (
+    Number(paymentRequest.amount) -
+    Number(paymentRequest.discount) +
+    Number(paymentRequest.additionalTax) +
+    paymentRequest.additionalKm * Number(paymentRequest.deliverymanAdditionalKm)
+  );
+}
+
 async function loadCompletedSlotForPaymentRequest(tx: PaymentRequestDbClient, workShiftSlotId: string) {
   return tx.workShiftSlot.findUnique({
     where: { id: workShiftSlotId },
@@ -244,27 +259,38 @@ export function paymentRequestsService() {
       try {
         const PENDING_STATUSES = ["NEW", "EDITED", "EDITION_APPROVED"];
 
-        const slotIds = await db.workShiftSlot.findMany({
-          where: { shiftDate: dateKeyToDbDate(shiftDate), client: { branchId } },
-          select: { id: true },
+        const paymentRequests = await db.paymentRequest.findMany({
+          where: {
+            workShiftSlot: {
+              shiftDate: dateKeyToDbDate(shiftDate),
+              client: { branchId },
+            },
+          },
+          select: {
+            status: true,
+            amount: true,
+            discount: true,
+            additionalTax: true,
+            additionalKm: true,
+            deliverymanAdditionalKm: true,
+          },
         });
 
-        if (slotIds.length === 0) {
-          return okAsync({ byStatus: [], totalAmount: 0, pendingCount: 0 });
+        const summaryByStatus = new Map<string, { status: string; count: number; amount: number }>();
+
+        for (const paymentRequest of paymentRequests) {
+          const existing = summaryByStatus.get(paymentRequest.status) ?? {
+            status: paymentRequest.status,
+            count: 0,
+            amount: 0,
+          };
+
+          existing.count += 1;
+          existing.amount += calculateNetPaymentRequestAmount(paymentRequest);
+          summaryByStatus.set(paymentRequest.status, existing);
         }
 
-        const groups = await db.paymentRequest.groupBy({
-          by: ["status"],
-          where: { workShiftSlotId: { in: slotIds.map((s) => s.id) } },
-          _count: true,
-          _sum: { amount: true },
-        });
-
-        const byStatus = groups.map((g) => ({
-          status: g.status,
-          count: g._count,
-          amount: Number(g._sum.amount ?? 0),
-        }));
+        const byStatus = Array.from(summaryByStatus.values());
 
         const totalAmount = byStatus.reduce((sum, row) => sum + row.amount, 0);
         const pendingCount = byStatus
@@ -280,12 +306,14 @@ export function paymentRequestsService() {
 
     async listAll(query: PaymentRequestListQueryDTO) {
       try {
-        const { page, pageSize, deliverymanId, workShiftSlotId, status, date, contractType, clientId } = query;
+        const { page, pageSize, deliverymanId, workShiftSlotId, status, date, contractType, clientId, branchId } =
+          query;
         const skip = (page - 1) * pageSize;
 
         const workShiftSlotFilter = {
           ...(date && { shiftDate: dateKeyToDbDate(date) }),
           ...(clientId && { clientId }),
+          ...(branchId && { client: { branchId } }),
         };
 
         const where = {
