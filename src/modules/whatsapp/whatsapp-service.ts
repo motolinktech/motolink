@@ -16,6 +16,8 @@ Local de apoio: ${content.clientAddress}
 Período estimado: ${content.startTime} - ${content.endTime}\n\n
 Caso tenha interesse, você poderá aceitar ou recusar livremente por meio do link abaixo:\n\n
 👉 ${process.env.NEXT_PUBLIC_APP_URL}/confirmar-escala?token=${content.token}`,
+  FORGOT_PASSWORD: (content) =>
+    `🔐 Olá, ${content.name}. Recebemos uma solicitação para redefinir sua senha no Sistema Motolink.\n\nAcesse o link abaixo para criar uma nova senha:\n\n👉 ${process.env.NEXT_PUBLIC_APP_URL}/trocar-senha?token=${content.token}&userId=${content.userId}\n\nSe você não solicitou essa alteração, entre em contato com o administrador.`,
   INTERNAL: (content) => `[Interno] ${JSON.stringify(content)}`,
 };
 

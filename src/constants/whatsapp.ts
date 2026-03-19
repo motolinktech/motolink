@@ -1,5 +1,6 @@
 export const whatsappMessageTypeConst = {
   WORK_SHIFT: "WORK_SHIFT",
+  FORGOT_PASSWORD: "FORGOT_PASSWORD",
   INTERNAL: "INTERNAL",
 } as const;
 

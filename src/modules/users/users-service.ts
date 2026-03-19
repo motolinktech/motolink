@@ -1,10 +1,12 @@
 import { errAsync, okAsync } from "neverthrow";
 import { historyTraceActionConst, historyTraceEntityConst } from "@/constants/history-trace";
 import { statusConst } from "@/constants/status";
+import { whatsappMessageTypeConst } from "@/constants/whatsapp";
 import { db } from "@/lib/database";
 import { hash } from "@/lib/hash";
 import { generateSecureToken } from "@/utils/generate-secure-token";
 import { historyTracesService } from "../history-traces/history-traces-service";
+import { whatsappService } from "../whatsapp/whatsapp-service";
 import type { UserListQueryDTO, UserMutateDTO } from "./users-types";
 
 export function usersService() {
@@ -367,6 +369,67 @@ export function usersService() {
         console.error("Error deleting user:", error);
         return errAsync({
           reason: "Não foi possível excluir usuário",
+          statusCode: 500,
+        });
+      }
+    },
+
+    async forgotPassword(email: string) {
+      try {
+        const user = await db.user.findFirst({
+          where: { email, isDeleted: false },
+        });
+
+        if (!user || user.status === statusConst.BLOCKED) {
+          return okAsync({ success: true });
+        }
+
+        const cooldownLimit = new Date(Date.now() - 5 * 60 * 1000);
+        const recentToken = await db.verificationToken.findFirst({
+          where: { userId: user.id, createdAt: { gt: cooldownLimit } },
+        });
+
+        if (recentToken) {
+          return errAsync({
+            reason: "Aguarde alguns minutos antes de solicitar novamente",
+            statusCode: 429,
+          });
+        }
+
+        await db.user.update({
+          where: { id: user.id },
+          data: { password: null, status: statusConst.PENDING },
+        });
+
+        await db.session.deleteMany({ where: { userId: user.id } });
+        await db.verificationToken.deleteMany({ where: { userId: user.id } });
+
+        const token = await generateSecureToken();
+
+        await db.verificationToken.create({
+          data: {
+            userId: user.id,
+            token,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+
+        if (user.phone && user.branches.length > 0) {
+          whatsappService()
+            .sendInvite({
+              phone: user.phone,
+              branchId: user.branches[0],
+              type: whatsappMessageTypeConst.FORGOT_PASSWORD,
+              content: { token, userId: user.id, name: user.name },
+            })
+            .catch(() => {});
+        }
+
+        return okAsync({ success: true });
+      } catch (error) {
+        console.error("Error processing forgot password:", error);
+        return errAsync({
+          reason: "Não foi possível processar a solicitação",
           statusCode: 500,
         });
       }

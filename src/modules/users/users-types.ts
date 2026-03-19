@@ -90,3 +90,9 @@ export const changePasswordSchema = z.object({
 });
 
 export type ChangePasswordDTO = z.infer<typeof changePasswordSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("E-mail inválido"),
+});
+
+export type ForgotPasswordDTO = z.infer<typeof forgotPasswordSchema>;

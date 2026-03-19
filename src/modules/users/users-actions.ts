@@ -9,7 +9,7 @@ import { cookieConst } from "@/constants/cookies";
 import { safeAction } from "@/lib/safe-action";
 import { cleanMask } from "@/utils/masks/clean-mask";
 import { usersService } from "./users-service";
-import { changePasswordSchema, newPasswordSchema, userMutateSchema } from "./users-types";
+import { changePasswordSchema, forgotPasswordSchema, newPasswordSchema, userMutateSchema } from "./users-types";
 
 dayjs.extend(customParseFormat);
 
@@ -126,3 +126,13 @@ export async function deleteUserAction(id: string) {
   revalidatePath("/gestao/colaboradores");
   return { success: true };
 }
+
+export const forgotPasswordAction = safeAction.inputSchema(forgotPasswordSchema).action(async ({ parsedInput }) => {
+  const result = await usersService().forgotPassword(parsedInput.email);
+
+  if (result.isErr()) {
+    return { error: result.error.reason };
+  }
+
+  return { success: true };
+});
