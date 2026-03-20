@@ -12,7 +12,8 @@
     "test": "vitest",
     "prepare": "husky",
     "db:dev": "docker compose up -d db",
-    "seed": "pnpx tsx scripts/seed.ts"
+    "seed": "pnpx tsx scripts/seed.ts",
+    "backup": "pnpx tsx scripts/backup-database.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
