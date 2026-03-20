@@ -27,6 +27,7 @@ const updateStatusInputSchema = z.object({
   status: z.string().min(1, { message: "Status é obrigatório" }),
   absentReason: z.string().optional(),
   cancelledReason: z.string().optional(),
+  shouldClone: z.boolean().optional(),
 });
 
 const mutateInputSchema = workShiftSlotMutateSchema.extend({
@@ -57,6 +58,7 @@ export const updateWorkShiftSlotStatusAction = safeAction
       loggedUserId,
       parsedInput.absentReason,
       parsedInput.cancelledReason,
+      parsedInput.shouldClone,
     );
 
     if (result.isErr()) {

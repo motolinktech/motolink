@@ -839,7 +839,7 @@ describe("Work Shift Slots Service", () => {
           });
 
           const absentReason = "absentReason" in rest ? rest.absentReason : undefined;
-          const result = await service.updateStatus(slot.id, to, LOGGED_USER_ID, absentReason);
+          const result = await service.updateStatus(slot.id, to, LOGGED_USER_ID, absentReason, undefined, true);
 
           expect(result.isOk()).toBe(true);
           const value = result._unsafeUnwrap();
@@ -888,7 +888,7 @@ describe("Work Shift Slots Service", () => {
           },
         });
 
-        const result = await service.updateStatus(slot.id, "ABSENT", LOGGED_USER_ID, "Motivo teste");
+        const result = await service.updateStatus(slot.id, "ABSENT", LOGGED_USER_ID, "Motivo teste", undefined, true);
 
         expect(result.isOk()).toBe(true);
         const clone = result._unsafeUnwrap().clonedSlot!;
@@ -922,6 +922,24 @@ describe("Work Shift Slots Service", () => {
         expect(original!.deliverymanId).toBe(deliveryman.id);
       });
 
+      it("should NOT create a clone when shouldClone is not provided", async () => {
+        const branch = await createTestBranch();
+        const client = await createTestClient({ branchId: branch.id });
+        const deliveryman = await createTestDeliveryman({ branchId: branch.id });
+        const slot = await createTestWorkShiftSlot({
+          clientId: client.id,
+          deliverymanId: deliveryman.id,
+          status: "CONFIRMED",
+        });
+
+        const result = await service.updateStatus(slot.id, "CANCELLED", LOGGED_USER_ID);
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap().clonedSlot).toBeNull();
+
+        const allSlots = await db.workShiftSlot.findMany({ where: { clientId: client.id } });
+        expect(allSlots).toHaveLength(1);
+      });
+
       it("should log UPDATED on original and CREATED on clone", async () => {
         const branch = await createTestBranch();
         const client = await createTestClient({ branchId: branch.id });
@@ -933,7 +951,7 @@ describe("Work Shift Slots Service", () => {
           status: "CONFIRMED",
         });
 
-        const result = await service.updateStatus(slot.id, "CANCELLED", LOGGED_USER_ID);
+        const result = await service.updateStatus(slot.id, "CANCELLED", LOGGED_USER_ID, undefined, undefined, true);
         expect(result.isOk()).toBe(true);
         const cloneId = result._unsafeUnwrap().clonedSlot!.id;
 

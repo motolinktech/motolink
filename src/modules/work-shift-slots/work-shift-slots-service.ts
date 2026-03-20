@@ -421,6 +421,7 @@ export function workShiftSlotsService() {
       loggedUserId: string,
       absentReason?: string,
       cancelledReason?: string,
+      shouldClone?: boolean,
     ) {
       try {
         const include = {
@@ -475,7 +476,7 @@ export function workShiftSlotsService() {
           }
 
           let newSlot = null;
-          if (CLONE_TRIGGER_STATUSES.includes(status)) {
+          if (shouldClone && CLONE_TRIGGER_STATUSES.includes(status)) {
             newSlot = await tx.workShiftSlot.create({ data: buildCloneData(existing), include });
           }
 
